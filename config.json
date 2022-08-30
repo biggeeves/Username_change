@@ -1,0 +1,26 @@
+{
+  "name": "Username Change",
+  "namespace": "CDC\\UserNameChange",
+  "framework-version": 9,
+  "authors": [
+    {
+      "name": "Greg Neils",
+      "email": "gregneils@gmail.com"
+    }
+  ],
+  "description": "Change a username",
+  "enable-every-page-hooks-on-system-pages": false,
+  "links": {
+    "control-center": [
+      {
+        "name": "Change Usernames",
+        "icon": "fas fa-receipt",
+        "url": "change-usernames.php",
+        "show-header-and-footer": true
+      }
+    ]
+  },
+  "compatibility": {
+    "redcap-version-min": "12.0.8"
+  }
+}
