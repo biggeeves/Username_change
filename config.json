@@ -5,7 +5,8 @@
   "authors": [
     {
       "name": "Greg Neils",
-      "email": "gregneils@gmail.com"
+      "email": "stn3@dcd.gov",
+      "institution": "Center for Disease Control"
     }
   ],
   "description": "Change a username",
@@ -24,3 +25,4 @@
     "redcap-version-min": "12.0.8"
   }
 }
+
