@@ -10,6 +10,7 @@ namespace CDC\UserNameChange;
 use DateTime;
 use ExternalModules\ExternalModules;
 use ExternalModules\AbstractExternalModule;
+use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Pure;
 use Logging;
 use Project;
@@ -20,12 +21,6 @@ use REDCap;
  */
 class UserNameChange extends AbstractExternalModule
 {
-    private $lang;
-    private $page;
-    private $user_rights;
-    private $get;
-    private $post;
-    private $userName;
     /**
      * @var string[][]
      */
@@ -85,55 +80,118 @@ class UserNameChange extends AbstractExternalModule
         ];
 
         $this->pageUrl = $this->getUrl('change-usernames.php');
-        $this->users = $this->query('select * from redcap_user_information', []);
+        $selectUserSQL = 'select `username`, `user_firstname`, `user_lastname`, `user_email`' .
+            ' from redcap_user_information ORDER BY `username`';
+        $this->users = $this->query($selectUserSQL, []);
 
         $this->setAction();
     }
+
+    private
+    function setAction()
+    {
+        $validPostActions = [
+            'single_user_preview',
+            'single_user_change',
+            'bulk_preview',
+            'bulk_update'
+        ];
+        $this->action = 'page_load';
+        $form_action = $this->sanitize($_REQUEST['form_action']);
+        if ($_REQUEST['action'] === 'auth_methods_preview') {
+            $this->action = 'auth_methods_preview';
+        } else if ($_REQUEST['action'] === 'collation') {
+            $this->action = 'collation';
+        } else if ($_SERVER["REQUEST_METHOD"] === "GET") {
+            $this->action = 'page_load';
+        } else if ($_SERVER["REQUEST_METHOD"] === "POST") {
+            if (in_array($form_action, $validPostActions, true)) {
+                $this->action = $form_action;
+            }
+        }
+    }
+
 
     public function makePage(): void
     {
         echo $this->makeNavBar();
 
-        if ($this->action === 'auth_methods') {
+        if ($this->action === 'page_load') {
+            $this->makeHomePage();
+        } else if ($this->action === 'auth_methods_preview') {
             echo $this->makeAuthenticationMethodsPage();
-        } else if ($this->action === 'page_load') {
-            $this->makeGetPage();
-        } else if ($this->action === 'preview') {
-            $oldUser = $this->sanitize($_REQUEST['old_name']);
-            $newUser = $this->sanitize($_REQUEST['new_name']);
-            if ($this->validateUserNameChanges($oldUser, $newUser)) {
-                $results = $this->previewChanges($oldUser, $newUser);
-                echo "Total Affected Rows: " . $results['count'];
-                echo $results['resultTable'];
-                echo "<h5>Select SQL</h5><pre>";
-                echo $results['selectSQL'];
-                echo "</pre>";
-                echo "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>";
-                echo $results['updateSQL'];
-                echo "</pre>";
-                $this->createFinalSingleUserChangeForm($oldUser, $newUser);
-            } else {
-                echo $this->getUserNameChangeErrors($oldUser, $newUser);
-            }
-        } else if ($this->action === 'change_user') {
-            $this->changeUser();
-        } else if ($this->action === 'bulk') {
-            $this->bulkProcess();
+        } else if ($this->action === 'bulk_preview') {
+            $this->bulkUserPreview();
+        } else if ($this->action === 'bulk_update') {
+            $this->bulkUserUpdate();
         } else if ($this->action === 'collation') {
             $this->showCollations();
+        } else if ($this->action === 'single_user_preview') {
+            $this->singleUserPreview();
+        } else if ($this->action === 'single_user_change') {
+            $this->singleUserChange();
         } else {
-            echo "Sorry, that is not an available action.";
+            echo "Sorry, " . htmlspecialchars($this->sanitize($this->action)) . " that is not an available action.";
         }
     }
 
-    private function bulkProcess()
+
+    private function singleUserPreview()
+    {
+        $oldUser = $this->sanitize($_REQUEST['old_name']);
+        $newUser = $this->sanitize($_REQUEST['new_name']);
+        if ($this->validateUserNameChanges($oldUser, $newUser)) {
+            $results = $this->previewUserChanges($oldUser, $newUser);
+            echo "Total rows found: " . $results['count'];
+            echo $results['resultTable'];
+            echo "<h5>Select SQL</h5><pre>";
+            echo $results['selectSQL'];
+            echo "</pre>";
+            echo "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>";
+            echo $results['updateSQL'];
+            echo "</pre>";
+            echo $this->makeSingleUserChangeFinalizeForm($oldUser, $newUser);
+        } else {
+            echo $this->getUserNameChangeErrors($oldUser, $newUser);
+        }
+    }
+
+
+    private
+    function singleUserUpdate($oldUser, $newUser): bool
+    {
+        if ($this->validateUserNameChanges($oldUser, $newUser)) {
+            $this->commitUserChange($oldUser, $newUser);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
+    private function singleUserChange()
+    {
+        $oldUser = $this->sanitize($_REQUEST['old_name']);
+        $newUser = $this->sanitize($_REQUEST['new_name']);
+        if ($this->singleUserUpdate($oldUser, $newUser)) {
+            echo '<div class="alert alert-secondary"><h4>Changed User</h4>' .
+                '<p>Old: ' . $oldUser . '</p>' .
+                '<p>New: ' . $newUser . '</p>' .
+                '</div>';
+        } else {
+            echo $this->getUserNameChangeErrors($oldUser, $newUser);
+        }
+    }
+
+    private
+    function bulkUserPreview()
     {
         $bulkCSV = $this->sanitize($_REQUEST['csvUserNames']);
         if ($bulkCSV === '') {
             echo 'no input';
             exit;
         }
-        $allUserNamesValid = 1;
+        $allUserNamesValid = true;
         $ids = explode("\n", str_replace("\r", "", $bulkCSV));
         $counter = 0;
         $totalAffectedRows = 0;
@@ -146,19 +204,20 @@ class UserNameChange extends AbstractExternalModule
             if (count($names) === 2) {
                 $oldUser = $this->sanitize($names[0]);
                 $newUser = $this->sanitize($names[1]);
-                $allUserNamesValid = $this->validateUserNameChanges($oldUser, $newUser);
-                if ($this->validateUserNameChanges($oldUser, $newUser)) {
-                    $results = $this->previewChanges($oldUser, $newUser);
+                $userNamesValid = $this->validateUserNameChanges($oldUser, $newUser);
+                if ($userNamesValid) {
+                    $results = $this->previewUserChanges($oldUser, $newUser);
                     $totalAffectedRows = sum($totalAffectedRows, $results['count']);
                     $resultsTables .= $results['resultTable'];
                     $selectSQL .= $results['selectSQL'];
                     $updateSQL .= $results['updateSQL'];
                 } else {
+                    $allUserNamesValid = false;
                     echo $this->getUserNameChangeErrors($oldUser, $newUser);
                 }
             } else {
                 echo "There is an error around line " . $counter . ".<br>";
-                $allUserNamesValid = 0;
+                $allUserNamesValid = false;
             }
         }
         if ($allUserNamesValid) {
@@ -166,12 +225,81 @@ class UserNameChange extends AbstractExternalModule
             echo $resultsTables;
             echo "<h5>Select SQL</h5><pre>" . $selectSQL . "</pre>";
             echo "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>" . $updateSQL . "</pre>";
+            echo $this->bulkUserForm($bulkCSV);
         } else {
             echo '<p style="color:red;">Input must be corrected before proceeding</p>';
         }
     }
 
-    private function showCollations()
+    private
+    function bulkUserUpdate()
+    {
+        $bulkCSV = $this->sanitize($_REQUEST['csvUserNames']);
+        if ($bulkCSV === '') {
+            $allUserNamesValid = false;
+            echo "No CSV of username received";
+        } else {
+            $allUserNamesValid = true;
+        }
+        $ids = explode("\n", str_replace("\r", "", $bulkCSV));
+        $counter = 0;
+        $totalAffectedRows = 0;
+        $updateSQL = "";
+        foreach ($ids as $id) {
+            $counter++;
+            $names = explode(',', $id, 5);
+            if (count($names) === 2) {
+                $oldUser = $this->sanitize($names[0]);
+                $newUser = $this->sanitize($names[1]);
+                $userNamesValid = $this->validateUserNameChanges($oldUser, $newUser);
+                if (!$userNamesValid) {
+                    $allUserNamesValid = false;
+                    echo $this->getUserNameChangeErrors($oldUser, $newUser);
+                }
+            } else {
+                echo "There is an error around line " . $counter . ".<br>";
+                $allUserNamesValid = false;
+            }
+        }
+        if ($allUserNamesValid) {
+            echo '<p>Results of bulk upload.</p>';
+// todo this is done in twice here, is there a way to reduce duplicate code?
+            foreach ($ids as $id) {
+                $names = explode(',', $id, 5);
+                $oldUser = $this->sanitize($names[0]);
+                $newUser = $this->sanitize($names[1]);
+                if ($this->singleUserUpdate($oldUser, $newUser)) {
+                    echo '<div class="alert alert-secondary"><h4>Reult: Changed User</h4>' .
+                        '<p>Old: ' . $oldUser . '</p>' .
+                        '<p>New: ' . $newUser . '</p>' .
+                        '</div>';
+                } else {
+                    echo $this->getUserNameChangeErrors($oldUser, $newUser);
+                }
+            }
+        } else {
+            echo '<p style="color:red;">Input must be corrected before proceeding.</p>';
+        }
+    }
+
+    private
+    function bulkUserForm($bulkCSV): string
+    {
+        $form = '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
+            '<h5>Bulk User Change</h5><p>The usernames have passed basic validation.  Clicking submit will finalize the username change.  Proceed with caution.</p>' .
+            '<form  action="' . $this->pageUrl . '" method="post" enctype="multipart/form-data">' .
+            '<div class="form-group">' .
+            '<label for="csvUserNames">These usernames will change:</label>' .
+            '<textarea name="csvUserNames" id="csvUserNames" class="form-control" rows="5" readonly>' .
+            trim($bulkCSV) . '</textarea>' .
+            '</div>' .
+            '<button class="btn btn-success" type="submit" name="form_action" value="bulk_update">Submit</button>' .
+            '</form></div>';
+        return $form;
+    }
+
+    private
+    function showCollations(): void
     {
         global $db_collation;
         global $db;
@@ -184,7 +312,7 @@ class UserNameChange extends AbstractExternalModule
         $columnResult = $this->query($columnSQL, []);
         $pageData = "";
         echo "<p>The db_collation is set to " . $db_collation . "</p>";
-        echo "<p>Rows in bold contain a table and column that reference username.</p>";
+        echo "<p>Rows in bold contain a table and column that reference user and will be included in the SQL update.</p>";
         if ($columnResult->num_rows > 0) {
             $pageData .= "<div class='alert alert-success'>Column Collations</div>";
             $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr>' .
@@ -236,49 +364,26 @@ class UserNameChange extends AbstractExternalModule
         echo $pageData;
     }
 
-    private function changeUser(): void
+
+    private
+    function sanitize($data)
     {
-        $oldUser = $this->sanitize($_REQUEST['old_name']);
-        $newUser = $this->sanitize($_REQUEST['new_name']);
-        if (!$this->validateUserName($oldUser)) {
-            echo("The old user name must be at least two characters in length.<br>");
-            return;
-        }
-        if (!$this->validateUserName($newUser)) {
-            echo("The new user name must be at least two characters in length.<br>");
-            return;
-        }
-
-        if (!$this->findUser($oldUser)) {
-            echo "The user, $oldUser, was not found<br>";
-        } else if ($this->findUser($newUser)) {
-            echo "That user name, $newUser, is already taken<br>";
-        } else {
-            $banner = '<div class="alert alert-secondary"><h4>Changed User</h4>' .
-                '<p>Old: ' . $oldUser . '</p>' .
-                '<p>New: ' . $newUser . '</p>' .
-                '</div>';
-            echo $banner;
-            $this->changeUser2($oldUser, $newUser);
-        }
-
-    }
-
-    #[Pure] private function sanitize($data)
-    {
-        $data = lower(trim(stripslashes($data)));
+        // Note label_decode is a base REDCap function for cleaning data in a specific way.
+        $data = lower(trim(stripslashes(label_decode($data))));
         return filter_var($data, FILTER_SANITIZE_STRING);
     }
 
-    private function makeGetPage(): void
+    private
+    function makeHomePage(): void
     {
 //        echo $this->makeUsersDisplay();
-        echo $this->makeForm();
-        echo $this->makeUploadForm();
+        echo $this->makeSingleUserForm();
+        echo $this->makeBulkUploadForm();
 
     }
 
-    private function makeNavBar(): string
+    private
+    function makeNavBar(): string
     {
         return "<div>" . $this->makeReloadLink() .
             $this->makeAuthMethodLink() .
@@ -288,199 +393,14 @@ class UserNameChange extends AbstractExternalModule
             $this->makeSunflower();
     }
 
-    private function makeSunflower()
-    {
-        return '<div id="position" class="sunflower">
-	<div class="head">
-	    <div id="eye-1" class="eye"></div>
-	    <div id="eye-2" class="eye"></div>
-	    <div class="mouth"></div>
-	</div>
-	<div class="petals"></div>
-	<div class="trunk">
-		<div class="left-branch"></div>
-		<div class="right-branch"></div>
-	</div>
-	<div class="vase"></div>
-</div>' .
-            "<style>#position{
-	position:fixed;
-	bottom:180px;
-	left:25px;
-}
-.sunflower{
-  position:relative;
-  height:30px;
-  width:30px;
-}
-.head {
-  animation: hmove 2s infinite linear;
-  height: 50px;
-  width: 62px;
-  position: relative;
-  left:8px;
-  top:39px;
-  transform-origin: 50% -7px;
-  user-select: none;
-}
-.head .eye {
-  background: #43699a;
-  border-radius: 10px;
-  height: 5px;
-  position: absolute;
-  top: 30px;
-  width: 5px;
-}
-.head .eye#eye-1 {
-  left: 17px;
-   animation: eye 4s linear infinite normal 0.5s;
-}
-.head .eye#eye-2 {
-  right: 17px;
-  animation: eye 4s linear infinite normal 0.5s;
-}
-.head .mouth {
-  background: #ecf0f1;
-  border-radius: 30px;
-  bottom: 2px;
-  clip: rect(8px, 15px, 16px, 0);
-  height: 16px;
-  margin-left: -7.5px;
-  position: absolute;
-  left: 50%;
-  width: 15px;
-}
-
-.petals {
-  z-index:-1;
-  border-radius:100%;
-  display:inline-block;
-  background-color:#faaa18;
-  height:50px;
-  width:50px;
-  position:absolute;
-  animation:petals 2s infinite linear;
-  box-shadow:15px 17px #ffe000,
-    -15px 17px #ffe000,
-    -22px -7px #ffe000,
-    0px -22px #ffe000,
-    22px -7px #ffe000;
-}
-.trunk{
-	height: 65px; width: 5px;
-	background:#77b039;
-	left: 37px;top:100px;
-	position:absolute;
-	z-index:-2;
-	animation:trunk 2s infinite linear;
-}
-.left-branch{
-	background: #77b039;
-	height: 35px; width: 9px;
-	position: absolute; left: -12px; top: 24px;
-	border-radius:100% 0% 0% 0%;
-	-webkit-border-radius:100% 0% 0% 0%;
-	-moz-border-radius:100% 0% 0% 0%;
-	-ms-border-radius:100% 0% 0% 0%;
-	-o-border-radius:100% 0% 0% 0%;
-	
-	transform: rotate(-50deg);
-	-webkit-transform: rotate(-50deg);
-	-moz-transform: rotate(-50deg);
-	-ms-transform: rotate(-50deg);
-	-o-transform: rotate(-50deg);
-}
-
-.right-branch{
-	background: #77b039;
-	height: 35px; width: 9px;
-	position: absolute; top: 24px; left: 10px;
-	border-radius:0% 100% 0% 0%;
-	-webkit-border-radius:0% 100% 0% 0%;
-	-moz-border-radius:0% 100% 0% 0%;
-	-ms-border-radius:0% 100% 0% 0%;
-	-o-border-radius:0% 100% 0% 0%;
-	
-	transform: rotate(50deg);
-	-webkit-transform: rotate(50deg);
-	-moz-transform: rotate(50deg);
-	-ms-transform: rotate(50deg);
-	-o-transform: rotate(50deg);
-}
-.vase{
-position:absolute;
-   top:165px;
-   left:13px;
-   height: 0; 
-   width: 53px;
-   border-top: 45px solid #faaa18;
-   border-left: 8px solid transparent;
-   border-right: 8px solid transparent;
-}
-.vase:before,.vase:after {
-	content: '';
-	position: absolute;
-	background: #faa118;
-}
-.vase:before{
-	background: #f9a018;
-	width: 58px; height: 20px;
-	top: -50px; left: -10px;
-	position:absolute;
-	box-shadow: 0 5px 10px -9px black;
-	-moz-transform: 0 5px 10px -9px black;
-	-ms-transform: 0 5px 10px -9px black;
-	-o-transform: 0 5px 10px -9px black;
-}
-
-@keyframes petals {
-	0% {transform: rotate(0);left:10px;}
-	25% {left:20px;}
-	50% {left:10px;}
-	75% {left:20px;}
-	100% {transform: rotate(360deg);left:10px;}
-}
-@keyframes hmove {
-	0% {left:5px;}
-	25% {left:15px;}
-	50% {left:5px;}
-	75% {left:15px;}
-	100% {left:5px;}
-}
-@keyframes eye{
-	from { }
-    79% {height:5px;}
-	80% {height:0px;}
-	85%{height:5px;}
-	to {height:5px;}
-}
-@keyframes trunk {
-	0% {left:34px;transform:rotate(-5deg);}
-	25% {left:40px;transform:rotate(5deg);}
-	50% {left:34px;transform:rotate(-5deg);}
-	75% {left:40px;transform:rotate(5deg);}
-	100% {left:34px;transform:rotate(-5deg);}
-}</style>";
-    }
-
-
-    private function makeDisclaimer()
+    private
+    function makeDisclaimer(): string
     {
         return "<p>Please be very careful when using this external module</p>";
     }
 
-    private function makeUsersDisplay(): string
-    {
-        $usersDisplay = "<div class='alert alert-success'>The following usernames are available to change.</div>" .
-            "<ul>";
-        foreach ($this->users as $user) {
-            $usersDisplay .= '<li>' . $user['username'] . '</li>';
-        }
-        $usersDisplay .= "</ul>";
-        return $usersDisplay;
-    }
-
-    private function makeUploadForm(): string
+    private
+    function makeBulkUploadForm(): string
     {
         $form = '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
             '<h5>Bulk User Change</h5><p>Process multiple users.  Each row represents one user.' .
@@ -490,12 +410,13 @@ position:absolute;
             '<label for="csvUserNames">Paste in the csv data below</label>' .
             '<textarea name="csvUserNames" id="csvUserNames" class="form-control" rows="5"></textarea>' .
             '</div>' .
-            '<button class="btn btn-success" type="submit" name="form_action" value="bulk">Preview</button>' .
+            '<button class="btn btn-success" type="submit" name="form_action" value="bulk_preview">Preview</button>' .
             '</form></div>';
         return $form;
     }
 
-    private function makeForm(): string
+    private
+    function makeSingleUserForm(): string
     {
         $oldUserName = "";
         $newUserName = "";
@@ -505,13 +426,10 @@ position:absolute;
         if (isset($_REQUEST['new_name'])) {
             $newUserName = $this->sanitize($_REQUEST['new_name']);
         }
-        $state = 'load';
-        if (isset($_REQUEST['form_action'])) {
-            if ($_REQUEST['form_action'] === 'change_user') {
-                $state = 'change_user';
-            } else {
-                $state = 'preview';
-            }
+        if ($this->action === 'single_user_change') {
+            $state = 'single_user_change';
+        } else {
+            $state = 'single_user_preview';
         }
         $form = '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
             '<h5>Single Username Change</h5>' .
@@ -534,16 +452,40 @@ position:absolute;
             '<input type="text" id="new_name" name="new_name" class="form-control"  value="' . $newUserName . '">' . '<br>' .
             '</div>' .
             '<div class="form-group">';
-        if ($state === 'load') {
-            $form .= '<button class="btn btn-success" style="margin-right: 30px;" type="submit" name="form_action" value="preview">Preview' . '</button>';
+        if ($this->action === 'page_load') {
+            $form .= '<button class="btn btn-success" style="margin-right: 30px;" type="submit" name="form_action" value="single_user_preview">Preview' . '</button>';
+        } else if ($this->action === 'single_user_preview') {
+            $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">Change User</button>';
+        } else {
+            $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="whoops">Whoops</button>';
         }
-        $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="change_user">Change User' . '</button>' .
-            '</div>' .
+        $form .= '</div>' .
             '</form></div>';
         return $form;
     }
 
-    private function makeReloadLink(): string
+
+    private function makeSingleUserChangeFinalizeForm($oldUser, $newUser): string
+    {
+        $form = '<div class="card p-3"><form action="' . $this->pageUrl . '" method = "POST">' .
+            '<div class="form-group">' .
+            '<label for="old_name">Old Username: ' . $oldUser . '</label>' .
+            '<input name="old_name" id="old_name" class="form-control" value="' . $oldUser . '" readonly hidden>' .
+            '</div>' .
+            '<div class="form-group">' .
+            '<label for="new_name">New Username: ' . $newUser . '</label>' .
+            '<input type="text" id="new_name" name="new_name" class="form-control" readonly hidden value="' . $newUser . '">' .
+            '<br>' .
+            '</div>' .
+            '<div class="form-group">' .
+            '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">Change User' . '</button>' .
+            '</div>' .
+            '</form>';
+        return $form;
+    }
+
+    private
+    function makeReloadLink(): string
     {
         $parameters = "";
         if (isset($_REQUEST['old_name'])) {
@@ -560,29 +502,23 @@ position:absolute;
             $url . '">Change User Home Page</a>';
     }
 
-    private function makeAuthMethodLink(): string
+    private
+    function makeAuthMethodLink(): string
     {
         return '<a class="btn btn-primary"  style="margin:15px;" href="' .
-            $this->pageUrl . '&action=auth_methods">Show Auth Methods</a>';
+            $this->pageUrl . '&action=auth_methods_preview">Show Auth Methods</a>';
     }
 
-    private function makeCollationLink(): string
+    private
+    function makeCollationLink(): string
     {
         return '<a class="btn btn-primary"  style="margin:15px;" href="' .
             $this->pageUrl . '&action=collation">Show DB Collations</a>';
     }
 
-    private function getAuthenticationMethodSummary()
-    {
-        return $this->query('SELECT auth_meth, count(*) as count FROM redcap_projects group by auth_meth;', []);
-    }
 
-    private function getAuthenticationMethodDetails()
-    {
-        return $this->query('SELECT project_id, project_name, auth_meth FROM redcap_projects;', []);
-    }
-
-    private function makeAuthenticationMethodsPage(): string
+    private
+    function makeAuthenticationMethodsPage(): string
     {
         $authMethods = $this->getAuthenticationMethodSummary();
         $pageData = '';
@@ -616,21 +552,29 @@ position:absolute;
         return $pageData;
     }
 
-    private function setAction(): void
+
+    private
+    function makeSunflower(): string
     {
-        $this->action = 'page_load';
-        if ($_REQUEST['action'] === 'auth_methods') {
-            $this->action = 'auth_methods';
-        } else if ($_REQUEST['action'] === 'collation') {
-            $this->action = 'collation';
-        } else if ($_SERVER["REQUEST_METHOD"] === "GET") {
-            $this->action = 'page_load';
-        } else if ($_SERVER["REQUEST_METHOD"] === "POST") {
-            $this->action = $this->sanitize($_REQUEST['form_action']);
-        }
+        return '<div id="position" class="sunflower"><div class="head"><div id="eye-1" class="eye"></div><div id="eye-2" class="eye"></div><div class="mouth"></div></div><div class="petals"></div><div class="trunk"><div class="left-branch"></div><div class="right-branch"></div></div><div class="vase"></div></div>' .
+            "<style>#position{position:fixed;bottom:180px;left:25px;}.sunflower{position:relative;height:30px;width:30px;}.head {animation: hmove 2s infinite linear;height: 50px;width: 62px;position: relative;left:8px;top:39px;transform-origin: 50% -7px;user-select: none;}.head .eye {background: #43699a;border-radius: 10px;height: 5px;position: absolute;top: 30px;width: 5px;}.head .eye#eye-1 {left: 17px;animation: eye 4s linear infinite normal 0.5s;}.head .eye#eye-2 {right: 17px;animation: eye 4s linear infinite normal 0.5s;}.head .mouth {background: #ecf0f1;border-radius: 30px;bottom: 2px;clip: rect(8px, 15px, 16px, 0);height: 16px;margin-left: -7.5px;position: absolute;left: 50%;width: 15px;}.petals {z-index:-1;border-radius:100%;display:inline-block;background-color:#faaa18;height:50px;width:50px;position:absolute;animation:petals 2s infinite linear;box-shadow:15px 17px #ffe000, -15px 17px #ffe000, -22px -7px #ffe000, 0px -22px #ffe000, 22px -7px #ffe000;}.trunk{height: 65px;width: 5px;background:#77b039;left: 37px;top:100px;position:absolute;z-index:-2;animation:trunk 2s infinite linear;}.left-branch{background: #77b039;height: 35px;width: 9px;position: absolute;left: -12px;top: 24px;border-radius:100% 0% 0% 0%;transform: rotate(-50deg);}.right-branch{background: #77b039;height: 35px;width: 9px;position: absolute;top: 24px;left: 10px;border-radius:0% 100% 0% 0%;transform: rotate(50deg);}.vase{position:absolute;top:165px;left:13px;height: 0;width: 53px;border-top: 45px solid #faaa18;border-left: 8px solid transparent;border-right: 8px solid transparent;}.vase:before,.vase:after {content: '';position: absolute;background: #faa118;}.vase:before{background: #f9a018;width: 58px;height: 20px;top: -50px;left: -10px;position:absolute;box-shadow: 0 5px 10px -9px black;}@keyframes petals {0% {transform: rotate(0);left:10px;}25% {left:20px;}50% {left:10px;}75% {left:20px;}100% {transform: rotate(360deg);left:10px;}}@keyframes hmove {0% {left:5px;}25% {left:15px;}50% {left:5px;}75% {left:15px;}100% {left:5px;}}@keyframes eye{from {}79% {height:5px;}80% {height:0px;}85%{height:5px;}to {height:5px;}}@keyframes trunk {0% {left:34px;transform:rotate(-5deg);}25% {left:40px;transform:rotate(5deg);}50% {left:34px;transform:rotate(-5deg);}75% {left:40px;transform:rotate(5deg);}100% {left:34px;transform:rotate(-5deg);}}}</style>";
     }
 
-    private function changeUser2($oldUser, $newUser): void
+
+    private
+    function getAuthenticationMethodSummary()
+    {
+        return $this->query('SELECT `auth_meth`, count(auth_meth) as count FROM redcap_projects group by auth_meth;', []);
+    }
+
+    private
+    function getAuthenticationMethodDetails()
+    {
+        return $this->query('SELECT project_id, project_name, auth_meth FROM redcap_projects;', []);
+    }
+
+    private
+    function commitUserChange($oldUser, $newUser): void
     {
         global $db_collation;
         echo "<div class='alert alert-success'>The following tables were updated</div>";
@@ -657,7 +601,7 @@ position:absolute;
         echo $resultTable;
         echo "<div class='alert alert-success'>Using the UPDATE following SQL:</div><pre>" . $sql . '</pre>';
 
-        $logEvent = 'Changed User Name.  Old: ' . $oldUser . ' New: ' . $newUser;
+        $logEvent = 'Changed user name.  Old: ' . $oldUser . ' New: ' . $newUser;
         Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
         $logId = $this->log(
             "Username Changed",
@@ -668,11 +612,12 @@ position:absolute;
         );
     }
 
-    private function getUserNameChangeErrors($oldUser, $newUser): string
+    #[
+        Pure] private function getUserNameChangeErrors($oldUser, $newUser): string
     {
         $errorMessage = "";
         if (!$this->validateUserName($oldUser)) {
-            $errorMessage = "The old user name is not valid.<br>";
+            $errorMessage .= "The old user name is not valid.<br>";
         }
         if (!$this->validateUserName($newUser)) {
             $errorMessage .= "The new user name is not valid.<br>";
@@ -680,13 +625,15 @@ position:absolute;
 
         if (!$this->findUser($oldUser)) {
             $errorMessage .= "The user, $oldUser, was not found<br>";
-        } else if ($this->findUser($newUser)) {
+        }
+        if ($this->findUser($newUser)) {
             $errorMessage = $newUser . " is already in use.  An old username can not be changed to an existing username.<br>";
         }
         return $errorMessage;
     }
 
-    private function previewChanges($oldUser, $newUser): array
+    #[ArrayShape(['count' => "int", 'resultTable' => "string", 'selectSQL' => "string", 'updateSQL' => "string"])]
+    private function previewUserChanges($oldUser, $newUser): array
     {
 // todo get this in a method and call from here as well as change user.
         $allSelectSQL = '';
@@ -735,34 +682,8 @@ position:absolute;
         return $resultArray;
     }
 
-    private function createFinalSingleUserChangeForm($oldUser, $newUser)
-    {
-        $form = '<div class="card p-3"><form action="' . $this->pageUrl . '" method = "POST">' .
-            '<div class="form-group">' .
-            '<label for="old_name">Old Username: ' . $oldUser . '</label>' .
-            '<input name="old_name" id="old_name" class="form-control" value="' . $oldUser . '" readonly hidden>' .
-            '</div>' .
-            '<div class="form-group">' .
-            '<label for="new_name">New Username: ' . $newUser . '</label>' .
-            '<input type="text" id="new_name" name="new_name" class="form-control" readonly hidden value="' . $newUser . '">' .
-            '<br>' .
-            '</div>' .
-            '<div class="form-group">' .
-            '<button class="btn btn-warning" type="submit" name="form_action" value="change_user">Change User' . '</button>' .
-            '</div>' .
-            '</form>';
-        return $form;
-    }
 
-    private function validateUserName($username): bool
-    {
-        if (length($username) < 2) {
-            return false;
-        }
-        return true;
-    }
-
-    private function findUser(mixed $oldUser): bool
+    #[Pure] private function findUser(mixed $oldUser): bool
     {
         foreach ($this->users as $user) {
             if (lower($user['username']) === lower($oldUser)) {
@@ -772,7 +693,16 @@ position:absolute;
         return false;
     }
 
-    private function validateUserNameChanges($oldUser, $newUser): bool
+
+    #[Pure] private function validateUserName($username): bool
+    {
+        if (length($username) < 2) {
+            return false;
+        }
+        return true;
+    }
+
+    #[Pure] private function validateUserNameChanges($oldUser, $newUser): bool
     {
         if (!$this->validateUserName($oldUser)) {
             return false;
