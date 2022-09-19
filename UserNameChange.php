@@ -48,7 +48,7 @@ class UserNameChange extends AbstractExternalModule
         if ($isSuperUser !== true) {
             echo('This page is unavailable.');
         }
-
+// todo purge passwords
         $this->tablesAndColumns = [
             ['table' => 'redcap_log_view', 'column' => 'user'],
             ['table' => 'redcap_log_event', 'column' => 'user'],
@@ -453,9 +453,9 @@ class UserNameChange extends AbstractExternalModule
             '</div>' .
             '<div class="form-group">';
         if ($this->action === 'page_load') {
-            $form .= '<button class="btn btn-success" style="margin-right: 30px;" type="submit" name="form_action" value="single_user_preview">Preview' . '</button>';
+            $form .= '<button class="btn btn-success" style="margin-right: 30px;" type="submit" name="form_action" value="single_user_preview">Review' . '</button>';
         } else if ($this->action === 'single_user_preview') {
-            $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">Change User</button>';
+            $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">Commit Username Change</button>';
         } else {
             $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="whoops">Whoops</button>';
         }
@@ -522,18 +522,70 @@ class UserNameChange extends AbstractExternalModule
     {
         $authMethods = $this->getAuthenticationMethodSummary();
         $pageData = '';
+        $authMethodsInUse = [];
         if ($authMethods->num_rows > 0) {
             $pageData .= "<div class='alert alert-success'>Authentication Methods Summary</div>";
             $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Auth Methods</th><th>Count</th></tr>';
             while ($method = mysqli_fetch_array($authMethods)) {
+                $authMethodsInUse[] = $method['auth_meth'];
                 $resultTable .= '<tr><td>' . $method['auth_meth'] . '</td>' .
                     '<td>' . $method['count'] . '</td></tr>';
             }
-
             $pageData .= $resultTable . '</table>';
         } else {
-            $pageData .= '<p>There are no results for auth methods.  This result is strange and should never occur';
+            $pageData .= '<p>There are no results for auth methods.  This result is strange and should probably never occur';
         }
+
+        '<form action="' . $this->pageUrl . '" method = "POST">' .
+
+
+        $authChanger = '<div style="padding:20px;margin:20px; border: 2px solid pink;">' .
+            '<p>The authentication method can be set for individual projects.  When moving from one authentication system  ' .
+            'to another, REDCap projects may have to switch to the new authentication method.  This can be done in Project Settings.' .
+            ' The code below is to bulk update ALL projects!  Be careful! This means you may not be able to log in again when this value changes.' .
+            ' The SQL code is provided, but it is not run by this E.M. Run the code on your database, IF you feel it is accurate and appropriated. ' .
+            ' Or use the code below as a starting point to write your own SQL code based on your needs.  Testing is your friend.</p>' .
+            '<form><div class="form-group"  >' .
+            '<label for="old_auth">From Authentication:</label>' .
+            '<select name="old_auth" id="old_auth" class="form-control" onchange="generateSQL();">';
+        foreach ($authMethodsInUse as $singleMeth) {
+            $authChanger .= '<option value="' . $singleMeth . '">' . $singleMeth . '</option>';
+        }
+        $authChanger .= '</select></div>' .
+            '<div class="form-group">' .
+            '<label for="new_auth">TO:</label>' .
+            '<select class="form-control" name="new_auth" id="new_auth" onchange="generateSQL();">
+			<option value="none">None (Public)</option>
+			<option value="table" selected="">Table-based</option>
+			<option value="ldap">LDAP</option>
+			<option value="ldap_table">LDAP &amp; Table-based</option>
+			<option value="shibboleth">Shibboleth</option>
+            <option value="shibboleth_table">Shibboleth &amp; Table-based</option>
+			<option value="openid_google">Google OAuth2</option>
+			<option value="oauth2_azure_ad">Azure AD OAuth2</option>
+			<option value="rsa">RSA SecurID (two-factor authentication)</option>
+			<option value="sams">SAMS (for CDC)</option>
+		    <option value="aaf">AAF (Australian Access Federation)</option>
+			<option value="aaf_table">AAF (Australian Access Federation) &amp; Table-based</option>
+			<option value="openid_connect">OpenID Connect</option>
+			<option value="openid_connect_table">OpenID Connect &amp; Table-based</option>
+        </select></div>' .
+            '<div class="form-group">' .
+            '<button class="btn btn-success" onclick="generateSQL();return false;">Generate SQL Code</button>' .
+            '</div>' .
+            '</form>' . '<div id="auth_changer_sql" style="padding:20px"><code>UPDATE `redcap_projects`' .
+            ' SET `auth_meth` = "<span id="new_value">New</span>"' .
+            ' WHERE `auth_meth` = "<span id="old_value">old</span>"</code></div>' .
+            '</div>' .
+            '<script>function generateSQL() {' .
+            'document.getElementById("old_value").innerHTML = ' .
+            'document.getElementById("old_auth").value;' .
+            'document.getElementById("new_value").innerHTML = ' .
+            'document.getElementById("new_auth").value;}' .
+            'generateSQL();</script>';
+
+
+        $pageData .= $authChanger;
         $projects = $this->getAuthenticationMethodDetails();
         $pageData .= "<div class='alert alert-success'>Details</div>";
         if ($projects->num_rows > 0) {
@@ -549,6 +601,8 @@ class UserNameChange extends AbstractExternalModule
         } else {
             $pageData .= '<p>There are no results for projects.  This result is strange and should never occur';
         }
+
+
         return $pageData;
     }
 
