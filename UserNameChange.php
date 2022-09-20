@@ -7,7 +7,6 @@
 
 namespace CDC\UserNameChange;
 
-use DateTime;
 use ExternalModules\ExternalModules;
 use ExternalModules\AbstractExternalModule;
 use JetBrains\PhpStorm\ArrayShape;
@@ -44,10 +43,6 @@ class UserNameChange extends AbstractExternalModule
         parent::__construct();
         $this->user = $this->getUser();
 
-        $isSuperUser = $this->user->isSuperUser();
-        if ($isSuperUser !== true) {
-            echo('This page is unavailable.');
-        }
 // todo purge passwords
         $this->tablesAndColumns = [
             ['table' => 'redcap_log_view', 'column' => 'user'],
@@ -103,7 +98,11 @@ class UserNameChange extends AbstractExternalModule
         } else if ($_REQUEST['action'] === 'collation') {
             $this->action = 'collation';
         } else if ($_SERVER["REQUEST_METHOD"] === "GET") {
-            $this->action = 'page_load';
+            if ($_REQUEST['action'] === 'passwords') {
+                $this->action = 'passwords';
+            } else {
+                $this->action = 'page_load';
+            }
         } else if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if (in_array($form_action, $validPostActions, true)) {
                 $this->action = $form_action;
@@ -114,6 +113,11 @@ class UserNameChange extends AbstractExternalModule
 
     public function makePage(): void
     {
+        $isSuperUser = $this->user->isSuperUser();
+        if ($isSuperUser !== true) {
+            die('This page is unavailable.');
+        }
+
         echo $this->makeNavBar();
 
         if ($this->action === 'page_load') {
@@ -126,6 +130,8 @@ class UserNameChange extends AbstractExternalModule
             $this->bulkUserUpdate();
         } else if ($this->action === 'collation') {
             $this->showCollations();
+        } else if ($this->action === 'passwords') {
+            $this->showPasswords();
         } else if ($this->action === 'single_user_preview') {
             $this->singleUserPreview();
         } else if ($this->action === 'single_user_change') {
@@ -163,9 +169,9 @@ class UserNameChange extends AbstractExternalModule
         if ($this->validateUserNameChanges($oldUser, $newUser)) {
             $this->commitUserChange($oldUser, $newUser);
             return true;
-        } else {
-            return false;
         }
+
+        return false;
     }
 
 
@@ -243,8 +249,6 @@ class UserNameChange extends AbstractExternalModule
         }
         $ids = explode("\n", str_replace("\r", "", $bulkCSV));
         $counter = 0;
-        $totalAffectedRows = 0;
-        $updateSQL = "";
         foreach ($ids as $id) {
             $counter++;
             $names = explode(',', $id, 5);
@@ -285,7 +289,7 @@ class UserNameChange extends AbstractExternalModule
     private
     function bulkUserForm($bulkCSV): string
     {
-        $form = '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
+        return '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
             '<h5>Bulk User Change</h5><p>The usernames have passed basic validation.  Clicking submit will finalize the username change.  Proceed with caution.</p>' .
             '<form  action="' . $this->pageUrl . '" method="post" enctype="multipart/form-data">' .
             '<div class="form-group">' .
@@ -295,7 +299,6 @@ class UserNameChange extends AbstractExternalModule
             '</div>' .
             '<button class="btn btn-success" type="submit" name="form_action" value="bulk_update">Submit</button>' .
             '</form></div>';
-        return $form;
     }
 
     private
@@ -308,10 +311,13 @@ class UserNameChange extends AbstractExternalModule
             " WHERE `COLUMN_NAME` LIKE '%USER%'" .
             "AND `TABLE_SCHEMA` = '" . $db . "'";
         $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COLLATION FROM INFORMATION_SCHEMA.TABLES" .
-            "AND `TABLE_SCHEMA` = '" . $db . "'";
+            " WHERE `TABLE_SCHEMA` = '" . $db . "'";
         $columnResult = $this->query($columnSQL, []);
         $pageData = "";
-        echo "<p>The db_collation is set to " . $db_collation . "</p>";
+        echo "<p>The REDCap system level db_collation is set to " . $db_collation . "</p>" .
+            "<pre>" . $columnSQL . "</pre>" .
+            "<pre>" . $tableSQL . "</pre>" . "</br>";
+
         echo "<p>Rows in bold contain a table and column that reference user and will be included in the SQL update.</p>";
         if ($columnResult->num_rows > 0) {
             $pageData .= "<div class='alert alert-success'>Column Collations</div>";
@@ -337,7 +343,7 @@ class UserNameChange extends AbstractExternalModule
         } else {
             $pageData .= '<p>There are no results for column collations.  This result is strange and should never occur';
         }
-        $tableResult = $this->query($columnSQL, []);
+        $tableResult = $this->query($tableSQL, []);
 
         if ($tableResult->num_rows > 0) {
             $pageData .= "<div class='alert alert-success'>Table Collations</div>";
@@ -354,14 +360,28 @@ class UserNameChange extends AbstractExternalModule
                 $resultTable .= '>' .
                     '<td>' . $collation['TABLE_SCHEMA'] . '</td>' .
                     '<td>' . $collation['TABLE_NAME'] . '</td>' .
-                    '<td>' . $collation['COLLATION_NAME'] . '</td></tr>';
+                    '<td>' . $collation['TABLE_COLLATION'] . '</td></tr>';
             }
 
             $pageData .= $resultTable . '</table>';
         } else {
-            $pageData .= '<p>There are no results for table collations.  This result is strange and should never occur';
+            $pageData .= '<p>There are no results for table collations.  This result is strange and should never occur.';
         }
         echo $pageData;
+    }
+
+    private function showPasswords()
+    {
+        echo '<p>When table based authentication is used passwords are individually salted, hashed and stored in the REDCap database.' .
+            ' When removing table based authentication, <em>(example: switching from Table Based to OAuth)</em>,' .
+            ' it may be good idea or even required to remove passwords from REDCap.' .
+            ' The SQL query below will set all passwords to NULL. Once the SQL script is run, there is no way to recover passwords.' .
+            ' Please use the SQL query as your starting point.  If you do not understand whaT the script will do, do not run it. There is another column, ' .
+            ' password_reset_key, which you may want to set to null as well.  This script will work as long as REDCap keeps the password column NULLABLE.</p>' .
+            '<p style="color:red;"> Running this script will remove ALL passwords, even yours. You may be locked out of the system.</p>' .
+            '<pre>UPDATE `redcap_auth` set `password` = NULL</pre>';
+        $logEvent = 'Viewed how to remove all passwords via External Module.';
+        Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
     }
 
 
@@ -388,6 +408,7 @@ class UserNameChange extends AbstractExternalModule
         return "<div>" . $this->makeReloadLink() .
             $this->makeAuthMethodLink() .
             $this->makeCollationLink() .
+            $this->makePasswordsLink() .
             "</div>" .
             $this->makeDisclaimer() .
             $this->makeSunflower();
@@ -396,7 +417,9 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeDisclaimer(): string
     {
-        return "<p>Please be very careful when using this external module</p>";
+        return "<p>Please be very careful when using this external module.".
+            " It is your responsibility to ensure that new usernames are compliant with REDCap.".
+            " Usernames can only contain letters, numbers, underscores, hyphens, and periods.</p>";
     }
 
     private
@@ -404,7 +427,7 @@ class UserNameChange extends AbstractExternalModule
     {
         $form = '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
             '<h5>Bulk User Change</h5><p>Process multiple users.  Each row represents one user.' .
-            ' Each row should be in the format <br>old_user_name,new_user_name</p>' .
+            ' Each row must be in the format of <br><br>old_user_name,new_user_name</p>' .
             '<form  action="' . $this->pageUrl . '" method="post" enctype="multipart/form-data">' .
             '<div class="form-group">' .
             '<label for="csvUserNames">Paste in the csv data below</label>' .
@@ -516,6 +539,13 @@ class UserNameChange extends AbstractExternalModule
             $this->pageUrl . '&action=collation">Show DB Collations</a>';
     }
 
+    private
+    function makePasswordsLink(): string
+    {
+        return '<a class="btn btn-primary"  style="margin:15px;" href="' .
+            $this->pageUrl . '&action=passwords">Password Info</a>';
+    }
+
 
     private
     function makeAuthenticationMethodsPage(): string
@@ -524,7 +554,9 @@ class UserNameChange extends AbstractExternalModule
         $pageData = '';
         $authMethodsInUse = [];
         if ($authMethods->num_rows > 0) {
-            $pageData .= "<div class='alert alert-success'>Authentication Methods Summary</div>";
+            $pageData .= "<div class='alert alert-success'>Authentication Methods Summary</div>" .
+                "<p>Changing the authentication method, perhaps locking everyone out of projects. This includes you! " .
+                " Unlike other things, the superuser's auth method must be compatible with the auth method of a project for them to be able to do anything.</p>";
             $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Auth Methods</th><th>Count</th></tr>';
             while ($method = mysqli_fetch_array($authMethods)) {
                 $authMethodsInUse[] = $method['auth_meth'];
@@ -544,7 +576,7 @@ class UserNameChange extends AbstractExternalModule
             'to another, REDCap projects may have to switch to the new authentication method.  This can be done in Project Settings.' .
             ' The code below is to bulk update ALL projects!  Be careful! This means you may not be able to log in again when this value changes.' .
             ' The SQL code is provided, but it is not run by this E.M. Run the code on your database, IF you feel it is accurate and appropriated. ' .
-            ' Or use the code below as a starting point to write your own SQL code based on your needs.  Testing is your friend.</p>' .
+            ' Or use the code below as a starting point to write your own SQL code based on your needs.  The superuser&#38;s auth method must be compatible with the auth method of a project for them to be able to do anything. Testing is your friend.</p>' .
             '<form><div class="form-group"  >' .
             '<label for="old_auth">From Authentication:</label>' .
             '<select name="old_auth" id="old_auth" class="form-control" onchange="generateSQL();">';
@@ -611,7 +643,7 @@ class UserNameChange extends AbstractExternalModule
     function makeSunflower(): string
     {
         return '<div id="position" class="sunflower"><div class="head"><div id="eye-1" class="eye"></div><div id="eye-2" class="eye"></div><div class="mouth"></div></div><div class="petals"></div><div class="trunk"><div class="left-branch"></div><div class="right-branch"></div></div><div class="vase"></div></div>' .
-            "<style>#position{position:fixed;bottom:180px;left:25px;}.sunflower{position:relative;height:30px;width:30px;}.head {animation: hmove 2s infinite linear;height: 50px;width: 62px;position: relative;left:8px;top:39px;transform-origin: 50% -7px;user-select: none;}.head .eye {background: #43699a;border-radius: 10px;height: 5px;position: absolute;top: 30px;width: 5px;}.head .eye#eye-1 {left: 17px;animation: eye 4s linear infinite normal 0.5s;}.head .eye#eye-2 {right: 17px;animation: eye 4s linear infinite normal 0.5s;}.head .mouth {background: #ecf0f1;border-radius: 30px;bottom: 2px;clip: rect(8px, 15px, 16px, 0);height: 16px;margin-left: -7.5px;position: absolute;left: 50%;width: 15px;}.petals {z-index:-1;border-radius:100%;display:inline-block;background-color:#faaa18;height:50px;width:50px;position:absolute;animation:petals 2s infinite linear;box-shadow:15px 17px #ffe000, -15px 17px #ffe000, -22px -7px #ffe000, 0px -22px #ffe000, 22px -7px #ffe000;}.trunk{height: 65px;width: 5px;background:#77b039;left: 37px;top:100px;position:absolute;z-index:-2;animation:trunk 2s infinite linear;}.left-branch{background: #77b039;height: 35px;width: 9px;position: absolute;left: -12px;top: 24px;border-radius:100% 0% 0% 0%;transform: rotate(-50deg);}.right-branch{background: #77b039;height: 35px;width: 9px;position: absolute;top: 24px;left: 10px;border-radius:0% 100% 0% 0%;transform: rotate(50deg);}.vase{position:absolute;top:165px;left:13px;height: 0;width: 53px;border-top: 45px solid #faaa18;border-left: 8px solid transparent;border-right: 8px solid transparent;}.vase:before,.vase:after {content: '';position: absolute;background: #faa118;}.vase:before{background: #f9a018;width: 58px;height: 20px;top: -50px;left: -10px;position:absolute;box-shadow: 0 5px 10px -9px black;}@keyframes petals {0% {transform: rotate(0);left:10px;}25% {left:20px;}50% {left:10px;}75% {left:20px;}100% {transform: rotate(360deg);left:10px;}}@keyframes hmove {0% {left:5px;}25% {left:15px;}50% {left:5px;}75% {left:15px;}100% {left:5px;}}@keyframes eye{from {}79% {height:5px;}80% {height:0px;}85%{height:5px;}to {height:5px;}}@keyframes trunk {0% {left:34px;transform:rotate(-5deg);}25% {left:40px;transform:rotate(5deg);}50% {left:34px;transform:rotate(-5deg);}75% {left:40px;transform:rotate(5deg);}100% {left:34px;transform:rotate(-5deg);}}}</style>";
+            "<style>#position{position:fixed;bottom:180px;left:25px;}.sunflower{position:relative;height:30px;width:30px;}.head {animation: head_move 2s infinite linear;height: 50px;width: 62px;position: relative;left:8px;top:39px;transform-origin: 50% -7px;user-select: none;}.head .eye {background: #43699a;border-radius: 10px;height: 5px;position: absolute;top: 30px;width: 5px;}.head .eye#eye-1 {left: 17px;animation: eye 4s linear infinite normal 0.5s;}.head .eye#eye-2 {right: 17px;animation: eye 4s linear infinite normal 0.5s;}.head .mouth {background: #ecf0f1;border-radius: 30px;bottom: 2px;clip: rect(8px, 15px, 16px, 0);height: 16px;margin-left: -7.5px;position: absolute;left: 50%;width: 15px;}.petals {z-index:-1;border-radius:100%;display:inline-block;background-color:#faaa18;height:50px;width:50px;position:absolute;animation:petals 2s infinite linear;box-shadow:15px 17px #ffe000, -15px 17px #ffe000, -22px -7px #ffe000, 0px -22px #ffe000, 22px -7px #ffe000;}.trunk{height: 65px;width: 5px;background:#77b039;left: 37px;top:100px;position:absolute;z-index:-2;animation:trunk 2s infinite linear;}.left-branch{background: #77b039;height: 35px;width: 9px;position: absolute;left: -12px;top: 24px;border-radius:100% 0% 0% 0%;transform: rotate(-50deg);}.right-branch{background: #77b039;height: 35px;width: 9px;position: absolute;top: 24px;left: 10px;border-radius:0% 100% 0% 0%;transform: rotate(50deg);}.vase{position:absolute;top:165px;left:13px;height: 0;width: 53px;border-top: 45px solid #faaa18;border-left: 8px solid transparent;border-right: 8px solid transparent;}.vase:before,.vase:after {content: '';position: absolute;background: #faa118;}.vase:before{background: #f9a018;width: 58px;height: 20px;top: -50px;left: -10px;position:absolute;box-shadow: 0 5px 10px -9px black;}@keyframes petals {0% {transform: rotate(0);left:10px;}25% {left:20px;}50% {left:10px;}75% {left:20px;}100% {transform: rotate(360deg);left:10px;}}@keyframes head_move {0% {left:5px;}25% {left:15px;}50% {left:5px;}75% {left:15px;}100% {left:5px;}}@keyframes eye{from {}79% {height:5px;}80% {height:0px;}85%{height:5px;}to {height:5px;}}@keyframes trunk {0% {left:34px;transform:rotate(-5deg);}25% {left:40px;transform:rotate(5deg);}50% {left:34px;transform:rotate(-5deg);}75% {left:40px;transform:rotate(5deg);}100% {left:34px;transform:rotate(-5deg);}}}</style>";
     }
 
 
@@ -655,7 +687,7 @@ class UserNameChange extends AbstractExternalModule
         echo $resultTable;
         echo "<div class='alert alert-success'>Using the UPDATE following SQL:</div><pre>" . $sql . '</pre>';
 
-        $logEvent = 'Changed user name.  Old: ' . $oldUser . ' New: ' . $newUser;
+        $logEvent = 'Changed user name.  Old: ' . $oldUser . ' New: ' . $newUser . ' via External Module.';
         Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
         $logId = $this->log(
             "Username Changed",
@@ -760,11 +792,17 @@ class UserNameChange extends AbstractExternalModule
     {
         if (!$this->validateUserName($oldUser)) {
             return false;
-        } else if (!$this->validateUserName($newUser)) {
+        }
+
+        if (!$this->validateUserName($newUser)) {
             return false;
-        } else if (!$this->findUser($oldUser)) {
+        }
+
+        if (!$this->findUser($oldUser)) {
             return false;
-        } else if ($this->findUser($newUser)) {
+        }
+
+        if ($this->findUser($newUser)) {
             return false;
         }
         return true;
