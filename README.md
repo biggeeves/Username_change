@@ -9,6 +9,6 @@ Greg Neils
 Update a username.
 
 ## Minimum REDCap Version
-Minimum REDCap version is 12.0.1.
+Minimum REDCap version is 12.0.8.
 
 ********************************************************************************
