@@ -45,33 +45,33 @@ class UserNameChange extends AbstractExternalModule
 
 // todo purge passwords
         $this->tablesAndColumns = [
-            ['table' => 'redcap_log_view', 'column' => 'user'],
-            ['table' => 'redcap_log_event', 'column' => 'user'],
-            ['table' => 'redcap_log_event2', 'column' => 'user'],
-            ['table' => 'redcap_log_event3', 'column' => 'user'],
-            ['table' => 'redcap_log_event4', 'column' => 'user'],
-            ['table' => 'redcap_log_event5', 'column' => 'user'],
-            ['table' => 'redcap_log_event6', 'column' => 'user'],
-            ['table' => 'redcap_log_event7', 'column' => 'user'],
-            ['table' => 'redcap_log_event8', 'column' => 'user'],
-            ['table' => 'redcap_log_event9', 'column' => 'user'],
-            ['table' => 'redcap_log_view_old ', 'column' => 'user'],
-            ['table' => 'redcap_user_allowlist', 'column' => 'username'],
-            ['table' => 'redcap_auth', 'column' => 'username'],
-            ['table' => 'redcap_auth_history', 'column' => 'username'],
-            ['table' => 'redcap_data_access_groups_users', 'column' => 'username'],
-            ['table' => 'redcap_esignatures', 'column' => 'username'],
-            ['table' => 'redcap_external_links_users', 'column' => 'username'],
-            ['table' => 'redcap_locking_data', 'column' => 'username'],
-            ['table' => 'redcap_locking_records', 'column' => 'username'],
-            ['table' => 'redcap_sendit_docs', 'column' => 'username'],
-            ['table' => 'redcap_project_dashboards_access_users', 'column' => 'username'],
-            ['table' => 'redcap_reports_access_users', 'column' => 'username'],
-            ['table' => 'redcap_user_information', 'column' => 'username'],
-            ['table' => 'redcap_user_rights', 'column' => 'username'],
-            ['table' => 'redcap_reports_edit_access_users', 'column' => 'username'],
-            ['table' => 'redcap_user_information', 'column' => 'user_sponsor'],
-            ['table' => 'redcap_projects', 'column' => 'project_pi_username']
+            ['table' => 'redcap_log_view', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event2', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event3', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event4', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event5', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event6', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event7', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event8', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_event9', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_log_view_old ', 'column' => 'user', 'has_table' => 0],
+            ['table' => 'redcap_user_allowlist', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_auth', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_auth_history', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_data_access_groups_users', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_esignatures', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_external_links_users', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_locking_data', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_locking_records', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_sendit_docs', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_project_dashboards_access_users', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_reports_access_users', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_user_information', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_user_rights', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_reports_edit_access_users', 'column' => 'username', 'has_table' => 0],
+            ['table' => 'redcap_user_information', 'column' => 'user_sponsor', 'has_table' => 0],
+            ['table' => 'redcap_projects', 'column' => 'project_pi_username', 'has_table' => 0]
         ];
 
         $this->pageUrl = $this->getUrl('change-usernames.php');
@@ -80,6 +80,19 @@ class UserNameChange extends AbstractExternalModule
         $this->users = $this->query($selectUserSQL, []);
 
         $this->setAction();
+    }
+
+    private function getTables()
+    {
+        global $db;
+        $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES" .
+            " WHERE `TABLE_SCHEMA` = '" . $db . "'";
+        $tableResult = $this->query($tableSQL, []);
+        $tables = [];
+        foreach ($tableResult as $row) {
+            $tables[] = $row['TABLE_NAME'];
+        }
+        return ($tables);
     }
 
     private
@@ -97,6 +110,8 @@ class UserNameChange extends AbstractExternalModule
             $this->action = 'auth_methods_preview';
         } else if ($_REQUEST['action'] === 'collation') {
             $this->action = 'collation';
+        } else if ($_REQUEST['action'] === 'tables') {
+            $this->action = 'tables';
         } else if ($_SERVER["REQUEST_METHOD"] === "GET") {
             if ($_REQUEST['action'] === 'passwords') {
                 $this->action = 'passwords';
@@ -118,6 +133,12 @@ class UserNameChange extends AbstractExternalModule
             die('This page is unavailable.');
         }
 
+        $dbTables = $this->getTables();
+        foreach ($this->tablesAndColumns as $rowId => $tablesAndColumns) {
+            if (in_array($tablesAndColumns['table'], $dbTables, true)) {
+                $this->tablesAndColumns[$rowId]['has_table'] = 1;
+            }
+        }
         echo $this->makeNavBar();
 
         if ($this->action === 'page_load') {
@@ -132,6 +153,8 @@ class UserNameChange extends AbstractExternalModule
             $this->showCollations();
         } else if ($this->action === 'passwords') {
             $this->showPasswords();
+        } else if ($this->action === 'tables') {
+            $this->showTables();
         } else if ($this->action === 'single_user_preview') {
             $this->singleUserPreview();
         } else if ($this->action === 'single_user_change') {
@@ -380,8 +403,13 @@ class UserNameChange extends AbstractExternalModule
             ' password_reset_key, which you may want to set to null as well.  This script will work as long as REDCap keeps the password column NULLABLE.</p>' .
             '<p style="color:red;"> Running this script will remove ALL passwords, even yours. You may be locked out of the system.</p>' .
             '<pre>UPDATE `redcap_auth` set `password` = NULL</pre>';
+            '<pre>UPDATE `redcap_auth` set `password_salt` = NULL</pre>';
         $logEvent = 'Viewed how to remove all passwords via External Module.';
         Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
+    }
+
+    private function showTables() {
+        echo $this->makeTableList();
     }
 
 
@@ -396,10 +424,8 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeHomePage(): void
     {
-//        echo $this->makeUsersDisplay();
         echo $this->makeSingleUserForm();
         echo $this->makeBulkUploadForm();
-
     }
 
     private
@@ -409,6 +435,7 @@ class UserNameChange extends AbstractExternalModule
             $this->makeAuthMethodLink() .
             $this->makeCollationLink() .
             $this->makePasswordsLink() .
+            $this->makeTablesLink() .
             "</div>" .
             $this->makeDisclaimer() .
             $this->makeSunflower();
@@ -417,9 +444,9 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeDisclaimer(): string
     {
-        return "<p>Please be very careful when using this external module.".
+        return "<p><em>Please be very careful when using this external module.".
             " It is your responsibility to ensure that new usernames are compliant with REDCap.".
-            " Usernames can only contain letters, numbers, underscores, hyphens, and periods.</p>";
+            " Usernames can only contain letters, numbers, underscores, hyphens, and periods.</em></p>";
     }
 
     private
@@ -436,6 +463,24 @@ class UserNameChange extends AbstractExternalModule
             '<button class="btn btn-success" type="submit" name="form_action" value="bulk_preview">Preview</button>' .
             '</form></div>';
         return $form;
+    }
+
+    private function makeTableList()
+    {
+        $table = '<p>The table below contains every table that could be affected when the user name changes.' .
+            ' Your version of REDCap may or may not have one of the tables below.' .
+            ' If "1" is in the has_table column it means your database has that table.' .
+            ' If "0" is in the has_table column it means your database does not have that table.</p>' .
+            ' NOTE: Column names are not checked!.  If the module crashes during a preview, check the column names.</p>' .
+            '<table class="table table-striped table-condensed">' .
+            '<tr><th>Table</th><th>Column</th><th>in DB</th></tr>';
+        foreach ($this->tablesAndColumns as $tablesAndColumn) {
+            $table .= '<tr><td>' . $tablesAndColumn['table'] . '</td>' .
+                '<td>' . $tablesAndColumn['column'] . '</td>' .
+                '<td>' . (($tablesAndColumn['has_table'])? "Yes": "No") . '</td>' . '</tr>';
+        }
+        $table .= '</table>';
+        return $table;
     }
 
     private
@@ -522,21 +567,21 @@ class UserNameChange extends AbstractExternalModule
             $url .= $parameters;
         }
         return '<a class="btn btn-primary" style="margin:15px;" href="' .
-            $url . '">Change User Home Page</a>';
+            $url . '">Change User</a>';
     }
 
     private
     function makeAuthMethodLink(): string
     {
         return '<a class="btn btn-primary"  style="margin:15px;" href="' .
-            $this->pageUrl . '&action=auth_methods_preview">Show Auth Methods</a>';
+            $this->pageUrl . '&action=auth_methods_preview">Auth Methods</a>';
     }
 
     private
     function makeCollationLink(): string
     {
         return '<a class="btn btn-primary"  style="margin:15px;" href="' .
-            $this->pageUrl . '&action=collation">Show DB Collations</a>';
+            $this->pageUrl . '&action=collation">DB Collations</a>';
     }
 
     private
@@ -544,6 +589,11 @@ class UserNameChange extends AbstractExternalModule
     {
         return '<a class="btn btn-primary"  style="margin:15px;" href="' .
             $this->pageUrl . '&action=passwords">Password Info</a>';
+    }
+
+    private function makeTablesLink(): string {
+        return '<a class="btn btn-primary"  style="margin:15px;" href="' .
+            $this->pageUrl . '&action=tables">Tables</a>';
     }
 
 
@@ -554,9 +604,13 @@ class UserNameChange extends AbstractExternalModule
         $pageData = '';
         $authMethodsInUse = [];
         if ($authMethods->num_rows > 0) {
-            $pageData .= "<div class='alert alert-success'>Authentication Methods Summary</div>" .
-                "<p>Changing the authentication method, perhaps locking everyone out of projects. This includes you! " .
-                " Unlike other things, the superuser's auth method must be compatible with the auth method of a project for them to be able to do anything.</p>";
+            $pageData .= '<div class="alert alert-success">Authentication Methods Summary</div>' .
+                '<p>Changing the authentication method might lock everyone out of all projects. This includes you! ' .
+                ' Unlike other things, the superusers auth method must be compatible with the auth method of a project for them to be able to do anything.'.
+                ' To change the Global Authentication method use the Security and Authentication page within REDCap.'.
+                ' First change the auth method using the script below.'.
+                ' Before changing the REDCap&rsquo;s Authentication method make sure your new username will work '.
+                ' or generate the SQL script that will update your username and then run it on the database.</p>';
             $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Auth Methods</th><th>Count</th></tr>';
             while ($method = mysqli_fetch_array($authMethods)) {
                 $authMethodsInUse[] = $method['auth_meth'];
@@ -668,6 +722,9 @@ class UserNameChange extends AbstractExternalModule
         $resultTable = "<table class='table table-striped'>" .
             "<tr><th>Table</th><th>Column</th><th>Count</th><th>Error #</th></tr>";
         foreach ($this->tablesAndColumns as $update) {
+            if ($update['has_table'] === 0) {
+                continue;
+            }
             $sql_embedded_parameters = 'UPDATE ' . $update['table'] .
                 ' SET `' . $update['column'] . '` = ' .
                 '"' . $newUser . '"' .
@@ -728,6 +785,9 @@ class UserNameChange extends AbstractExternalModule
             "<tr><th>Table</th><th>Column</th><th>Count</th></tr>";
         $rowCountTotal = 0;
         foreach ($this->tablesAndColumns as $update) {
+            if ($update['has_table'] === 0) {
+                continue;
+            }
             $sql_embedded_parameters = 'SELECT ' . $update['column'] .
                 ' FROM ' . $update['table'] .
                 ' WHERE `' . $update['column'] . '` = ' .
