@@ -37,67 +37,54 @@ class UserNameChange extends AbstractExternalModule
     private $user;
     private string $action;
 
+    private bool $include_logs;
 
     public function __construct()
     {
         parent::__construct();
         $this->user = $this->getUser();
 
-// todo purge passwords
+        $this->initialize();
+    }
+
+
+    private
+    function initialize()
+    {
         $this->tablesAndColumns = [
-            ['table' => 'redcap_log_view', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event2', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event3', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event4', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event5', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event6', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event7', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event8', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_event9', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_log_view_old ', 'column' => 'user', 'has_table' => 0],
-            ['table' => 'redcap_user_allowlist', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_auth', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_auth_history', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_data_access_groups_users', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_esignatures', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_external_links_users', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_locking_data', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_locking_records', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_sendit_docs', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_project_dashboards_access_users', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_reports_access_users', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_user_information', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_user_rights', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_reports_edit_access_users', 'column' => 'username', 'has_table' => 0],
-            ['table' => 'redcap_user_information', 'column' => 'user_sponsor', 'has_table' => 0],
-            ['table' => 'redcap_projects', 'column' => 'project_pi_username', 'has_table' => 0]
+            ['table' => 'redcap_log_event', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event2', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event3', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event4', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event5', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event6', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event7', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event8', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event9', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_view', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_view_old ', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_user_allowlist', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_auth', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_auth_history', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_data_access_groups_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_esignatures', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_external_links_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_locking_data', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_locking_records', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_sendit_docs', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_project_dashboards_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_reports_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_user_information', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_user_rights', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ' and project_id in (select project_id from redcap_projects)'],
+            ['table' => 'redcap_reports_edit_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => 'and report_id in (select report_id from redcap_reports )'],
+            ['table' => 'redcap_user_information', 'column' => 'user_sponsor', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_projects', 'column' => 'project_pi_username', 'has_table' => false, 'is_log' => false, 'sql_append' => '']
         ];
 
         $this->pageUrl = $this->getUrl('change-usernames.php');
         $selectUserSQL = 'select `username`, `user_firstname`, `user_lastname`, `user_email`' .
             ' from redcap_user_information ORDER BY `username`';
         $this->users = $this->query($selectUserSQL, []);
-
-        $this->setAction();
-    }
-
-    private function getTables()
-    {
-        global $db;
-        $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES" .
-            " WHERE `TABLE_SCHEMA` = '" . $db . "'";
-        $tableResult = $this->query($tableSQL, []);
-        $tables = [];
-        foreach ($tableResult as $row) {
-            $tables[] = $row['TABLE_NAME'];
-        }
-        return ($tables);
-    }
-
-    private
-    function setAction()
-    {
         $validPostActions = [
             'single_user_preview',
             'single_user_change',
@@ -123,8 +110,23 @@ class UserNameChange extends AbstractExternalModule
                 $this->action = $form_action;
             }
         }
+
+        $this->include_logs = $this->set_include_logs();
     }
 
+
+    private function getTables()
+    {
+        global $db;
+        $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES" .
+            " WHERE `TABLE_SCHEMA` = '" . $db . "'";
+        $tableResult = $this->query($tableSQL, []);
+        $tables = [];
+        foreach ($tableResult as $row) {
+            $tables[] = $row['TABLE_NAME'];
+        }
+        return ($tables);
+    }
 
     public function makePage(): void
     {
@@ -133,10 +135,12 @@ class UserNameChange extends AbstractExternalModule
             die('This page is unavailable.');
         }
 
+        // todo, this isn't the right place for this.  The method should update the property anyway.
+        //  Since it is not necessary on every page is it worth refactoring and specifying, or calling it good?
         $dbTables = $this->getTables();
         foreach ($this->tablesAndColumns as $rowId => $tablesAndColumns) {
             if (in_array($tablesAndColumns['table'], $dbTables, true)) {
-                $this->tablesAndColumns[$rowId]['has_table'] = 1;
+                $this->tablesAndColumns[$rowId]['has_table'] = true;
             }
         }
         echo $this->makeNavBar();
@@ -203,7 +207,7 @@ class UserNameChange extends AbstractExternalModule
         $oldUser = $this->sanitize($_REQUEST['old_name']);
         $newUser = $this->sanitize($_REQUEST['new_name']);
         if ($this->singleUserUpdate($oldUser, $newUser)) {
-            echo '<div class="alert alert-secondary"><h4>Changed User</h4>' .
+            echo '<div class="alert alert-secondary"><h4>Outcome: Changed User</h4>' .
                 '<p>Old: ' . $oldUser . '</p>' .
                 '<p>New: ' . $newUser . '</p>' .
                 '</div>';
@@ -403,12 +407,13 @@ class UserNameChange extends AbstractExternalModule
             ' password_reset_key, which you may want to set to null as well.  This script will work as long as REDCap keeps the password column NULLABLE.</p>' .
             '<p style="color:red;"> Running this script will remove ALL passwords, even yours. You may be locked out of the system.</p>' .
             '<pre>UPDATE `redcap_auth` set `password` = NULL</pre>';
-            '<pre>UPDATE `redcap_auth` set `password_salt` = NULL</pre>';
+        '<pre>UPDATE `redcap_auth` set `password_salt` = NULL</pre>';
         $logEvent = 'Viewed how to remove all passwords via External Module.';
         Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
     }
 
-    private function showTables() {
+    private function showTables()
+    {
         echo $this->makeTableList();
     }
 
@@ -444,8 +449,8 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeDisclaimer(): string
     {
-        return "<p><em>Please be very careful when using this external module.".
-            " It is your responsibility to ensure that new usernames are compliant with REDCap.".
+        return "<p><em>Please be very careful when using this external module." .
+            " It is your responsibility to ensure that new usernames are compliant with REDCap." .
             " Usernames can only contain letters, numbers, underscores, hyphens, and periods.</em></p>";
     }
 
@@ -469,15 +474,16 @@ class UserNameChange extends AbstractExternalModule
     {
         $table = '<p>The table below contains every table that could be affected when the user name changes.' .
             ' Your version of REDCap may or may not have one of the tables below.' .
-            ' If "1" is in the has_table column it means your database has that table.' .
-            ' If "0" is in the has_table column it means your database does not have that table.</p>' .
+            ' If "Yes" is in the In DB column it means your database has that table.' .
+            ' If "No" is in the In DB column it means your database does not have that table.</p>' .
             ' NOTE: Column names are not checked!.  If the module crashes during a preview, check the column names.</p>' .
             '<table class="table table-striped table-condensed">' .
-            '<tr><th>Table</th><th>Column</th><th>in DB</th></tr>';
+            '<tr><th>Table</th><th>Column</th><th>in DB</th><th>Is log Table</th></tr>';
         foreach ($this->tablesAndColumns as $tablesAndColumn) {
             $table .= '<tr><td>' . $tablesAndColumn['table'] . '</td>' .
                 '<td>' . $tablesAndColumn['column'] . '</td>' .
-                '<td>' . (($tablesAndColumn['has_table'])? "Yes": "No") . '</td>' . '</tr>';
+                '<td>' . (($tablesAndColumn['has_table']) ? "Yes" : "No") . '</td>' .
+                '<td>' . (($tablesAndColumn['is_log']) ? "Yes" : "No") . '</td>' . '</tr>';
         }
         $table .= '</table>';
         return $table;
@@ -519,6 +525,10 @@ class UserNameChange extends AbstractExternalModule
             '<label for="new_name">New Username:</label>' .
             '<input type="text" id="new_name" name="new_name" class="form-control"  value="' . $newUserName . '">' . '<br>' .
             '</div>' .
+            '<div class="form-group form-check">' .
+            '<input type="checkbox" id="include_logs" name="include_logs" class="form-check-input" value="1">' .
+            '<label for="include_logs" class="form-check-label">Include logs:</label>' .
+            '</div>' .
             '<div class="form-group">';
         if ($this->action === 'page_load') {
             $form .= '<button class="btn btn-success" style="margin-right: 30px;" type="submit" name="form_action" value="single_user_preview">Review' . '</button>';
@@ -535,7 +545,17 @@ class UserNameChange extends AbstractExternalModule
 
     private function makeSingleUserChangeFinalizeForm($oldUser, $newUser): string
     {
-        $form = '<div class="card p-3"><form action="' . $this->pageUrl . '" method = "POST">' .
+
+        if ($this->include_logs) {
+            $form_include_logs = true;
+        } else {
+            $form_include_logs = false;
+        }
+
+
+        $form = '<h4>Please review the information above and below for accuracy.' .
+            'You agree to take all responsibility for running this code. Pressing the button below can not be undone.</h4>' .
+            '<div class="card p-3"><form action="' . $this->pageUrl . '" method = "POST">' .
             '<div class="form-group">' .
             '<label for="old_name">Old Username: ' . $oldUser . '</label>' .
             '<input name="old_name" id="old_name" class="form-control" value="' . $oldUser . '" readonly hidden>' .
@@ -545,12 +565,37 @@ class UserNameChange extends AbstractExternalModule
             '<input type="text" id="new_name" name="new_name" class="form-control" readonly hidden value="' . $newUser . '">' .
             '<br>' .
             '</div>' .
+            '<div class="form-group form-check">' .
+            '<input type="checkbox" id="include_logs" name="include_logs" class="form-check-input" readonly hidden value="' . $form_include_logs . '"';
+
+        if ($this->include_logs) {
+            $form .= ' checked';
+        }
+        $form .= '>' .
+            '<label for="include_logs" class="form-check-label">Include logs:';
+        if($form_include_logs) {
+            $form .= " Yes";
+        } else {
+            $form .= " No";
+        }
+        $form .= '</label>' .
+            '</div>' .
             '<div class="form-group">' .
             '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">Change User' . '</button>' .
             '</div>' .
             '</form>';
         return $form;
     }
+
+
+    private function set_include_logs()
+    {
+        if (isset($_REQUEST['include_logs']) && $_REQUEST['include_logs'] = 1) {
+            return true;
+        }
+        return false;
+    }
+
 
     private
     function makeReloadLink(): string
@@ -591,7 +636,8 @@ class UserNameChange extends AbstractExternalModule
             $this->pageUrl . '&action=passwords">Password Info</a>';
     }
 
-    private function makeTablesLink(): string {
+    private function makeTablesLink(): string
+    {
         return '<a class="btn btn-primary"  style="margin:15px;" href="' .
             $this->pageUrl . '&action=tables">Tables</a>';
     }
@@ -606,10 +652,10 @@ class UserNameChange extends AbstractExternalModule
         if ($authMethods->num_rows > 0) {
             $pageData .= '<div class="alert alert-success">Authentication Methods Summary</div>' .
                 '<p>Changing the authentication method might lock everyone out of all projects. This includes you! ' .
-                ' Unlike other things, the superusers auth method must be compatible with the auth method of a project for them to be able to do anything.'.
-                ' To change the Global Authentication method use the Security and Authentication page within REDCap.'.
-                ' First change the auth method using the script below.'.
-                ' Before changing the REDCap&rsquo;s Authentication method make sure your new username will work '.
+                ' Unlike other things, the superusers auth method must be compatible with the auth method of a project for them to be able to do anything.' .
+                ' To change the Global Authentication method use the Security and Authentication page within REDCap.' .
+                ' First change the auth method using the script below.' .
+                ' Before changing the REDCap&rsquo;s Authentication method make sure your new username will work ' .
                 ' or generate the SQL script that will update your username and then run it on the database.</p>';
             $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Auth Methods</th><th>Count</th></tr>';
             while ($method = mysqli_fetch_array($authMethods)) {
@@ -722,16 +768,36 @@ class UserNameChange extends AbstractExternalModule
         $resultTable = "<table class='table table-striped'>" .
             "<tr><th>Table</th><th>Column</th><th>Count</th><th>Error #</th></tr>";
         foreach ($this->tablesAndColumns as $update) {
-            if ($update['has_table'] === 0) {
+            if (!$update['has_table']) {
                 continue;
             }
+            if ($update['is_log'] && !$this->include_logs) {
+                continue;
+            }
+
+            // todo a specific table has the need for a where clause.
             $sql_embedded_parameters = 'UPDATE ' . $update['table'] .
                 ' SET `' . $update['column'] . '` = ' .
                 '"' . $newUser . '"' .
                 ' WHERE `' . $update['column'] . '` = ' .
-                '"' . $oldUser . '"' .
-                ' COLLATE ' . $db_collation . ';';
+                '"' . $oldUser . '"';
+            if ($update['sql_append'] !== '') {
+                $sql_embedded_parameters .= " " . $update['sql_append'];
+            } else {
+                $sql_embedded_parameters .= ' COLLATE ' . $db_collation;
+            }
+            $sql_embedded_parameters .= ';';
             $sql .= $sql_embedded_parameters . "<br>";
+
+//            $sql_with_parameters = 'UPDATE ' . $update['table'] .
+//                ' SET `' . $update['column'] . '` = ?' .
+//                ' WHERE `' . $update['column'] . '` = ?' .
+//                ' COLLATE ' . $db_collation . ';';
+//            echo $sql_with_parameters;
+//
+//            $sql_parameters = [$newUser, $oldUser, $db_collation];
+//            $x = $this->query($sql_with_parameters, $sql_parameters);
+
             $result = $this->query($sql_embedded_parameters, []);
             $resultTable .= '<tr><th>' . $update['table'] . '</th>' .
                 '<th>' . $update['column'] . '</th>' .
@@ -740,6 +806,7 @@ class UserNameChange extends AbstractExternalModule
                 '</tr>';
 
         }
+
         $resultTable .= "</table>";
         echo $resultTable;
         echo "<div class='alert alert-success'>Using the UPDATE following SQL:</div><pre>" . $sql . '</pre>';
@@ -779,15 +846,21 @@ class UserNameChange extends AbstractExternalModule
     private function previewUserChanges($oldUser, $newUser): array
     {
 // todo get this in a method and call from here as well as change user.
+        global $db_collation;
         $allSelectSQL = '';
         $allUpdateSQL = '';
         $resultTable = "<table class='table table-striped'>" .
             "<tr><th>Table</th><th>Column</th><th>Count</th></tr>";
         $rowCountTotal = 0;
         foreach ($this->tablesAndColumns as $update) {
-            if ($update['has_table'] === 0) {
+            if (!$update['has_table']) {
                 continue;
             }
+
+            if ($update['is_log'] && !$this->include_logs) {
+                continue;
+            }
+
             $sql_embedded_parameters = 'SELECT ' . $update['column'] .
                 ' FROM ' . $update['table'] .
                 ' WHERE `' . $update['column'] . '` = ' .
@@ -797,10 +870,13 @@ class UserNameChange extends AbstractExternalModule
                 ' SET `' . $update['column'] . '` = ' .
                 '"' . $newUser . '"' .
                 ' WHERE `' . $update['column'] . '` = ' .
-                '"' . $oldUser . '"' .
-                ' COLLATE utf8mb4_unicode_ci;' .
-                '<br>';
-
+                '"' . $oldUser . '"';
+            if ($update['sql_append'] !== '') {
+                $allUpdateSQL .= " ". $update['sql_append'];
+            } else {
+                $allUpdateSQL .= ' COLLATE ' . $db_collation;
+            }
+            $allUpdateSQL .= ';<br>';
             $result = $this->query($sql_embedded_parameters, []);
             // todo check the $result to make sure there was not an error.
 
@@ -818,12 +894,6 @@ class UserNameChange extends AbstractExternalModule
             'selectSQL' => $allSelectSQL,
             'updateSQL' => $allUpdateSQL
         ];
-        $results = "<div class='alert alert-success'>" . $oldUser .
-            " was found $rowCountTotal times in the following tables:</div>" .
-            $resultTable .
-            "<div class='alert alert-success'>Using the following SELECT SQL:</div><pre>" . $allSelectSQL . '</pre>' .
-            "<div class='alert alert-success'>" .
-            "This is the UPDATE SQL:</div><pre style='font-size: .75em;'>" . $allUpdateSQL . '</pre>';
 
         return $resultArray;
     }
