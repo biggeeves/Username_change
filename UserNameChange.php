@@ -398,8 +398,8 @@ class UserNameChange extends AbstractExternalModule
             while ($collation = mysqli_fetch_array($columnResult)) {
                 $resultTable .= '<tr';
                 foreach ($this->tablesAndColumns as $update) {
-                    if (lower($update['table']) === lower($collation['TABLE_NAME']) &&
-                        lower($update['column']) === lower($collation['COLUMN_NAME'])) {
+                    if (strtolower($update['table']) === strtolower($collation['TABLE_NAME']) &&
+                        strtolower($update['column']) === strtolower($collation['COLUMN_NAME'])) {
                         $resultTable .= ' style="font-weight:bold;"';
                         break;
                     }
@@ -424,7 +424,7 @@ class UserNameChange extends AbstractExternalModule
             while ($collation = mysqli_fetch_array($tableResult)) {
                 $resultTable .= '<tr';
                 foreach ($this->tablesAndColumns as $update) {
-                    if (lower($update['table']) === lower($collation['TABLE_NAME'])) {
+                    if (strtolower($update['table']) === strtolower($collation['TABLE_NAME'])) {
                         $resultTable .= ' style="font-weight:bold;"';
                         break;
                     }
@@ -477,7 +477,7 @@ class UserNameChange extends AbstractExternalModule
     function sanitize($data)
     {
         // Note label_decode is a base REDCap function for cleaning data in a specific way.
-        $data = lower(trim(stripslashes(label_decode($data))));
+        $data = strtolower(trim(stripslashes(label_decode($data))));
         return filter_var($data, FILTER_SANITIZE_STRING);
     }
 
@@ -692,7 +692,7 @@ class UserNameChange extends AbstractExternalModule
             $parameters .= '&new_name=' . $this->sanitize($_REQUEST['new_name']);
         }
         $url = $this->pageUrl;
-        if (length($parameters) > 0) {
+        if ($parameters !== '') {
             $url .= $parameters;
         }
         return '<a class="btn btn-primary" style="margin:15px;" href="' .
@@ -845,7 +845,7 @@ class UserNameChange extends AbstractExternalModule
     function makeSunflower(): string
     {
         return '<div id="position" class="sunflower"><div class="head"><div id="eye-1" class="eye"></div><div id="eye-2" class="eye"></div><div class="mouth"></div></div><div class="petals"></div><div class="trunk"><div class="left-branch"></div><div class="right-branch"></div></div><div class="vase"></div></div>' .
-            "<style>#position{position:fixed;bottom:180px;left:25px;}.sunflower{position:relative;height:30px;width:30px;}.head {animation: head_move 3s infinite linear;height: 50px;width: 62px;position: relative;left:8px;top:39px;transform-origin: 50% -7px;user-select: none;}.head .eye {background: #43699a;border-radius: 10px;height: 5px;position: absolute;top: 30px;width: 5px;}.head .eye#eye-1 {left: 17px;animation: eye 3s linear infinite normal 0.5s;}.head .eye#eye-2 {right: 17px;animation: eye 3s linear infinite normal 0.5s;}.head .mouth {background: #ecf0f1;border-radius: 30px;bottom: 2px;clip: rect(8px, 15px, 16px, 0);height: 16px;margin-left: -7.5px;position: absolute;left: 50%;width: 15px;}.petals {z-index:-1;border-radius:100%;display:inline-block;background-color:#faaa18;height:50px;width:50px;position:absolute;animation:petals 3s infinite linear;box-shadow:15px 17px #ffe000, -15px 17px #ffe000, -22px -7px #ffe000, 0px -22px #ffe000, 22px -7px #ffe000;}.trunk{height: 65px;width: 5px;background:#77b039;left: 37px;top:100px;position:absolute;z-index:-2;animation:trunk 3s infinite linear;}.left-branch{background: #77b039;height: 35px;width: 9px;position: absolute;left: -12px;top: 24px;border-radius:100% 0% 0% 0%;transform: rotate(-50deg);}.right-branch{background: #77b039;height: 35px;width: 9px;position: absolute;top: 24px;left: 10px;border-radius:0% 100% 0% 0%;transform: rotate(50deg);}.vase{position:absolute;top:165px;left:13px;height: 0;width: 53px;border-top: 45px solid #faaa18;border-left: 8px solid transparent;border-right: 8px solid transparent;}.vase:before,.vase:after {content: '';position: absolute;background: #faa118;}.vase:before{background: #f9a018;width: 58px;height: 20px;top: -50px;left: -10px;position:absolute;box-shadow: 0 5px 10px -9px black;}@keyframes petals {0% {transform: rotate(0);left:10px;}25% {left:20px;}50% {left:10px;}75% {left:20px;}100% {transform: rotate(360deg);left:10px;}}@keyframes head_move {0% {left:5px;}25% {left:15px;}50% {left:5px;}75% {left:15px;}100% {left:5px;}}@keyframes eye{from {}79% {height:5px;}80% {height:0px;}85%{height:5px;}to {height:5px;}}@keyframes trunk {0% {left:34px;transform:rotate(-5deg);}25% {left:40px;transform:rotate(5deg);}50% {left:34px;transform:rotate(-5deg);}75% {left:40px;transform:rotate(5deg);}100% {left:34px;transform:rotate(-5deg);}}}</style>";
+            "<style>#position{position:fixed;bottom:180px;left:25px;}.sunflower{position:relative;height:30px;width:30px;}.head {animation: head_move 3s infinite linear;height: 50px;width: 62px;position: relative;left:8px;top:39px;transform-origin: 50% -7px;user-select: none;}.head .eye {background: #43699a;border-radius: 10px;height: 5px;position: absolute;top: 30px;width: 5px;}.head .eye#eye-1 {left: 17px;animation: eye 3s linear infinite normal 0.5s;}.head .eye#eye-2 {right: 17px;animation: eye 3s linear infinite normal 0.5s;}.head .mouth {background: #ecf0f1;border-radius: 30px;bottom: 2px;clip: rect(8px, 15px, 16px, 0);height: 16px;margin-left: -7.5px;position: absolute;left: 50%;width: 15px;}.petals {z-index:-1;border-radius:100%;display:inline-block;background-color:#faaa18;height:50px;width:50px;position:absolute;animation:petals 3s infinite linear;box-shadow:15px 17px #ffe000, -15px 17px #ffe000, -22px -7px #ffe000, 0 -22px #ffe000, 22px -7px #ffe000;}.trunk{height: 65px;width: 5px;background:#77b039;left: 37px;top:100px;position:absolute;z-index:-2;animation:trunk 3s infinite linear;}.left-branch{background: #77b039;height: 35px;width: 9px;position: absolute;left: -12px;top: 24px;border-radius:100% 0 0 0;transform: rotate(-50deg);}.right-branch{background: #77b039;height: 35px;width: 9px;position: absolute;top: 24px;left: 10px;border-radius:0 100% 0 0;transform: rotate(50deg);}.vase{position:absolute;top:165px;left:13px;height: 0;width: 53px;border-top: 45px solid #faaa18;border-left: 8px solid transparent;border-right: 8px solid transparent;}.vase:before,.vase:after {content: '';position: absolute;background: #faa118;}.vase:before{background: #f9a018;width: 58px;height: 20px;top: -50px;left: -10px;position:absolute;box-shadow: 0 5px 10px -9px black;}@keyframes petals {0% {transform: rotate(0);left:10px;}25% {left:20px;}50% {left:10px;}75% {left:20px;}100% {transform: rotate(360deg);left:10px;}}@keyframes head_move {0% {left:5px;}25% {left:15px;}50% {left:5px;}75% {left:15px;}100% {left:5px;}}@keyframes eye{from {}79% {height:5px;}80% {height:0;}85%{height:5px;}to {height:5px;}}@keyframes trunk {0% {left:34px;transform:rotate(-5deg);}25% {left:40px;transform:rotate(5deg);}50% {left:34px;transform:rotate(-5deg);}75% {left:40px;transform:rotate(5deg);}100% {left:34px;transform:rotate(-5deg);}}}</style>";
     }
 
 
@@ -1028,7 +1028,7 @@ class UserNameChange extends AbstractExternalModule
     #[Pure] private function findUser(mixed $oldUser): bool
     {
         foreach ($this->users as $user) {
-            if (lower($user['username']) === lower($oldUser)) {
+            if (strtolower($user['username']) === strtolower($oldUser)) {
                 return true;
             }
         }
@@ -1042,10 +1042,7 @@ class UserNameChange extends AbstractExternalModule
      */
     #[Pure] private function validateUserName($username): bool
     {
-        if (length($username) < 2) {
-            return false;
-        }
-        return true;
+        return strlen($username) > 2;
     }
 
     /**
