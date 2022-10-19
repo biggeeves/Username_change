@@ -512,9 +512,7 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeDisclaimer(): string
     {
-        return "<p><em>Please be very careful when using this external module." .
-            " It is your responsibility to ensure that new usernames are compliant with REDCap." .
-            " Usernames can only contain letters, numbers, underscores, hyphens, and periods.</em></p>";
+        return file_get_contents(__DIR__ . '/html/disclaimer.html');
     }
 
     /**
