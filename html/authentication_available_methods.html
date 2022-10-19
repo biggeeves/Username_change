@@ -1,0 +1,30 @@
+<div class="form-group">
+    <label for="new_auth">TO:</label>
+    <select class="form-control" name="new_auth" id="new_auth" onchange="generateSQL();">
+        <option value="none">None (Public)</option>
+        <option value="table" selected="">Table-based</option>
+        <option value="ldap">LDAP</option>
+        <option value="ldap_table">LDAP &amp; Table-based</option>
+        <option value="shibboleth">Shibboleth</option>
+        <option value="shibboleth_table">Shibboleth &amp; Table-based</option>
+        <option value="openid_google">Google OAuth2</option>
+        <option value="oauth2_azure_ad">Azure AD OAuth2</option>
+        <option value="rsa">RSA SecureID (two-factor authentication)</option>
+        <option value="sams">SAMS (for CDC)</option>
+        <option value="aaf">AAF (Australian Access Federation)</option>
+        <option value="aaf_table">AAF (Australian Access Federation) &amp; Table-based</option>
+        <option value="openid_connect">OpenID Connect</option>
+        <option value="openid_connect_table">OpenID Connect &amp; Table-based</option>
+    </select></div>
+</form>
+<p>Generated SQL below.  Double and triple check the code below and then it on your database.</p>
+<div id="auth_changer_sql" style="padding:20px"><code>UPDATE `redcap_projects`
+    SET `auth_meth` = "<span id="new_value">New</span>"
+    WHERE `auth_meth` = "<span id="old_value">old</span>"</code></div>
+</div>
+<script>function generateSQL() {
+    document.getElementById("old_value").innerHTML = document.getElementById("old_auth").value;
+    document.getElementById("new_value").innerHTML = document.getElementById("new_auth").value;
+}
+
+generateSQL();</script>

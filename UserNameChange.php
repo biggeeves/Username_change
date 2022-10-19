@@ -744,93 +744,52 @@ class UserNameChange extends AbstractExternalModule
     function makeAuthenticationMethodsPage(): string
     {
         $authMethods = $this->getAuthenticationMethodSummary();
-        $pageData = '';
         $authMethodsInUse = [];
+        $filename = __DIR__ . '/html/auth_methods_summary.html';
+        $pageData = file_get_contents($filename);
+
         if ($authMethods->num_rows > 0) {
-            $pageData .= '<div class="alert alert-success">Authentication Methods Summary</div>' .
-                '<p>Changing the authentication method might lock everyone out of all projects. This includes you! ' .
-                ' Unlike other things, the superusers auth method must be compatible with the auth method of a project for them to be able to do anything.' .
-                ' To change the Global Authentication method use the Security and Authentication page within REDCap.' .
-                ' First change the auth method using the script below.' .
-                ' Before changing the REDCap&rsquo;s Authentication method make sure your new username will work ' .
-                ' or generate the SQL script that will update your username and then run it on the database.</p>';
-            $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Auth Methods</th><th>Count</th></tr>';
+            $authAvailable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Auth Methods</th><th>Count</th></tr>';
             while ($method = mysqli_fetch_array($authMethods)) {
                 $authMethodsInUse[] = $method['auth_meth'];
-                $resultTable .= '<tr><td>' . $method['auth_meth'] . '</td>' .
+                $authAvailable .= '<tr><td>' . $method['auth_meth'] . '</td>' .
                     '<td>' . $method['count'] . '</td></tr>';
             }
-            $pageData .= $resultTable . '</table>';
+            $authAvailable .= '</table>';
         } else {
-            $pageData .= '<p>There are no results for auth methods.  This result is strange and should probably never occur';
+            $authAvailable = '<p>There are no results for auth methods.  This result is strange and should probably never occur';
         }
 
-        '<form action="' . $this->pageUrl . '" method = "POST">' .
-
-
-        $authChanger = '<div style="padding:20px;margin:20px; border: 2px solid pink;">' .
-            '<p>The authentication method can be set for individual projects.  When moving from one authentication system  ' .
-            'to another, REDCap projects may have to switch to the new authentication method.  This can be done in Project Settings.' .
-            ' The code below is to bulk update ALL projects!  Be careful! This means you may not be able to log in again when this value changes.' .
-            ' The SQL code is provided, but it is not run by this E.M. Run the code on your database, IF you feel it is accurate and appropriated. ' .
-            ' Or use the code below as a starting point to write your own SQL code based on your needs.  The superuser&#38;s auth method must be compatible with the auth method of a project for them to be able to do anything. Testing is your friend.</p>' .
+        $pageData .= '<div style="padding:20px;margin:20px; border: 2px solid pink;">' .
             '<form><div class="form-group"  >' .
-            '<label for="old_auth">From Authentication:</label>' .
+            '<label for="old_auth">Authentications in use in projects:</label>' .
             '<select name="old_auth" id="old_auth" class="form-control" onchange="generateSQL();">';
+        $authFrom = "";
         foreach ($authMethodsInUse as $singleMeth) {
-            $authChanger .= '<option value="' . $singleMeth . '">' . $singleMeth . '</option>';
+            $authFrom .= '<option value="' . $singleMeth . '">' . $singleMeth . '</option>';
         }
-        $authChanger .= '</select></div>' .
-            '<div class="form-group">' .
-            '<label for="new_auth">TO:</label>' .
-            '<select class="form-control" name="new_auth" id="new_auth" onchange="generateSQL();">
-			<option value="none">None (Public)</option>
-			<option value="table" selected="">Table-based</option>
-			<option value="ldap">LDAP</option>
-			<option value="ldap_table">LDAP &amp; Table-based</option>
-			<option value="shibboleth">Shibboleth</option>
-            <option value="shibboleth_table">Shibboleth &amp; Table-based</option>
-			<option value="openid_google">Google OAuth2</option>
-			<option value="oauth2_azure_ad">Azure AD OAuth2</option>
-			<option value="rsa">RSA SecurID (two-factor authentication)</option>
-			<option value="sams">SAMS (for CDC)</option>
-		    <option value="aaf">AAF (Australian Access Federation)</option>
-			<option value="aaf_table">AAF (Australian Access Federation) &amp; Table-based</option>
-			<option value="openid_connect">OpenID Connect</option>
-			<option value="openid_connect_table">OpenID Connect &amp; Table-based</option>
-        </select></div>' .
-            '<div class="form-group">' .
-            '<button class="btn btn-success" onclick="generateSQL();return false;">Generate SQL Code</button>' .
-            '</div>' .
-            '</form>' . '<div id="auth_changer_sql" style="padding:20px"><code>UPDATE `redcap_projects`' .
-            ' SET `auth_meth` = "<span id="new_value">New</span>"' .
-            ' WHERE `auth_meth` = "<span id="old_value">old</span>"</code></div>' .
-            '</div>' .
-            '<script>function generateSQL() {' .
-            'document.getElementById("old_value").innerHTML = ' .
-            'document.getElementById("old_auth").value;' .
-            'document.getElementById("new_value").innerHTML = ' .
-            'document.getElementById("new_auth").value;}' .
-            'generateSQL();</script>';
+        $pageData .= $authFrom . '</select></div>';
+        $filenameAuthTo = __DIR__ . '/html/authentication_available_methods.html';
+        $pageData .= file_get_contents($filenameAuthTo);
 
-
-        $pageData .= $authChanger;
-        $projects = $this->getAuthenticationMethodDetails();
         $pageData .= "<div class='alert alert-success'>Details</div>";
+        $pageData .= $authAvailable;
+
+        $projects = $this->getAuthenticationMethodDetails();
         if ($projects->num_rows > 0) {
-            $resultTable = '<table  class="table table-striped table-hover table-bordered"><tr>' .
+            $authInProjects = '<table  class="table table-striped table-hover table-bordered"><tr>' .
                 '<th>Project ID</th><th>Name</th><th>Auth Method</th></tr>';
             foreach ($projects as $project) {
-                $resultTable .= '<tr><th>' . $project['project_id'] . '</th>' .
+                $authInProjects .= '<tr><th>' . $project['project_id'] . '</th>' .
                     '<th>' . $project['project_name'] . '</th>' .
                     '<th>' . $project['auth_meth'] . '</th>' .
                     '</tr>';
             }
-            $pageData .= $resultTable . '</table>';
+            $authInProjects .= '</table>';
         } else {
-            $pageData .= '<p>There are no results for projects.  This result is strange and should never occur';
+            $authInProjects = '<p>There are no results for projects.  This result is strange and should never occur';
         }
-
+        $pageData .= $authInProjects;
 
         return $pageData;
     }
