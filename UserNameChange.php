@@ -275,7 +275,7 @@ class UserNameChange extends AbstractExternalModule
                 $userNamesValid = $this->validateUserNameChanges($oldUser, $newUser);
                 if ($userNamesValid) {
                     $results = $this->previewUserChanges($oldUser, $newUser);
-                    $totalAffectedRows = sum($totalAffectedRows, $results['count']);
+                    $totalAffectedRows += $results['count'];
                     $resultsTables .= $results['resultTable'];
                     $selectSQL .= $results['selectSQL'];
                     $updateSQL .= $results['updateSQL'];
@@ -289,11 +289,11 @@ class UserNameChange extends AbstractExternalModule
             }
         }
         if ($allUserNamesValid) {
-            echo '<p>Able to proceed</p>';
-            echo $resultsTables;
-            echo "<h5>Select SQL</h5><pre>" . $selectSQL . "</pre>";
-            echo "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>" . $updateSQL . "</pre>";
-            echo $this->bulkUserForm($bulkCSV);
+            echo '<p>Validated. Able to proceed.</p>' .
+                $resultsTables .
+                "<h5>Select SQL</h5><pre>" . $selectSQL . "</pre>" .
+                "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>" . $updateSQL . "</pre>" .
+                $this->bulkUserForm($bulkCSV);
         } else {
             echo '<p style="color:red;">Input must be corrected before proceeding</p>';
         }
@@ -385,12 +385,10 @@ class UserNameChange extends AbstractExternalModule
         $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COLLATION FROM INFORMATION_SCHEMA.TABLES" .
             " WHERE `TABLE_SCHEMA` = '" . $db . "'";
         $columnResult = $this->query($columnSQL, []);
-        $pageData = "";
-        echo "<p>The REDCap system level db_collation is set to " . $db_collation . "</p>" .
+        $pageData = "<p>The REDCap system level db_collation is set to " . $db_collation . "</p>" .
             "<pre>" . $columnSQL . "</pre>" .
-            "<pre>" . $tableSQL . "</pre>" . "</br>";
-
-        echo "<p>Rows in bold contain a table and column that reference user and will be included in the SQL update.</p>";
+            "<pre>" . $tableSQL . "</pre>" . "</br>" .
+            "<p>Rows in bold contain a table and column that reference user and will be included in the SQL update.</p>";
         if ($columnResult->num_rows > 0) {
             $pageData .= "<div class='alert alert-success'>Column Collations</div>";
             $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr>' .
@@ -651,7 +649,7 @@ class UserNameChange extends AbstractExternalModule
         }
         $form .= '>' .
             '<label for="include_logs" class="form-check-label">Include logs:';
-        if($form_include_logs) {
+        if ($form_include_logs) {
             $form .= " Yes";
         } else {
             $form .= " No";
@@ -939,8 +937,7 @@ class UserNameChange extends AbstractExternalModule
      * @param $newUser
      * @return string
      */
-    #[
-        Pure] private function getUserNameChangeErrors($oldUser, $newUser): string
+    private function getUserNameChangeErrors($oldUser, $newUser): string
     {
         $errorMessage = "";
         if (!$this->validateUserName($oldUser)) {
@@ -994,7 +991,7 @@ class UserNameChange extends AbstractExternalModule
                 ' WHERE `' . $tableAndColumn['column'] . '` = ' .
                 '"' . $oldUser . '"';
             if ($tableAndColumn['sql_append'] !== '') {
-                $allUpdateSQL .= " ". $tableAndColumn['sql_append'];
+                $allUpdateSQL .= " " . $tableAndColumn['sql_append'];
             } else {
                 $allUpdateSQL .= ' COLLATE ' . $db_collation;
             }
@@ -1025,7 +1022,7 @@ class UserNameChange extends AbstractExternalModule
      * @param mixed $oldUser
      * @return bool
      */
-    #[Pure] private function findUser(mixed $oldUser): bool
+    private function findUser($oldUser): bool
     {
         foreach ($this->users as $user) {
             if (strtolower($user['username']) === strtolower($oldUser)) {
@@ -1040,7 +1037,7 @@ class UserNameChange extends AbstractExternalModule
      * @param $username
      * @return bool
      */
-    #[Pure] private function validateUserName($username): bool
+    private function validateUserName($username): bool
     {
         return strlen($username) > 2;
     }
@@ -1050,7 +1047,7 @@ class UserNameChange extends AbstractExternalModule
      * @param $newUser
      * @return bool
      */
-    #[Pure] private function validateUserNameChanges($oldUser, $newUser): bool
+    private function validateUserNameChanges($oldUser, $newUser): bool
     {
         if (!$this->validateUserName($oldUser)) {
             return false;
