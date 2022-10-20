@@ -38,6 +38,7 @@ class UserNameChange extends AbstractExternalModule
      * @var
      */
     private $user;
+
     /**
      * @var string
      */
@@ -46,7 +47,18 @@ class UserNameChange extends AbstractExternalModule
     /**
      * @var bool
      */
-    private bool $include_logs;
+    private bool $includeLogs;
+
+    /**
+     * @var string
+     */
+    private string $linkStyle = 'color:white; text-decoration:none; letter-spacing:1px; font-weight:bold;';
+
+
+    /**
+     * @var string
+     */
+    private string $actionStyle = ' font-style: italic;';
 
     /**
      *
@@ -120,13 +132,13 @@ class UserNameChange extends AbstractExternalModule
             } else {
                 $this->action = 'page_load';
             }
-        } else if ($_SERVER["REQUEST_METHOD"] === "POST") {
+        } else if ($_SERVER["REQUEST_METHOD"] === 'POST') {
             if (in_array($form_action, $validPostActions, true)) {
                 $this->action = $form_action;
             }
         }
 
-        $this->include_logs = $this->set_include_logs();
+        $this->includeLogs = $this->set_include_logs();
     }
 
 
@@ -136,7 +148,7 @@ class UserNameChange extends AbstractExternalModule
     private function getTablesFromSchema(): array
     {
         global $db;
-        $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES" .
+        $tableSQL = 'SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES' .
             " WHERE `TABLE_SCHEMA` = '" . $db . "'";
         $tableResult = $this->query($tableSQL, []);
         $tables = [];
@@ -187,6 +199,8 @@ class UserNameChange extends AbstractExternalModule
         } else {
             echo "Sorry, " . htmlspecialchars($this->sanitize($this->action)) . " that is not an available action.";
         }
+        echo $this->makeDisclaimer();
+        echo $this->makeSunflower();
     }
 
 
@@ -201,9 +215,9 @@ class UserNameChange extends AbstractExternalModule
             $results = $this->previewUserChanges($oldUser, $newUser);
             $htmlResult = "Total rows found: " . $results['count'] .
                 $results['resultTable'] .
-                "<h5>Select SQL</h5>" .
-                "<pre>" . $results['selectSQL'] . "</pre>" .
-                "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>" . $results['updateSQL'] . "</pre>" .
+                '<h5>Select SQL</h5>' .
+                '<pre>' . $results['selectSQL'] . '</pre>' .
+                '<h5>Update SQL</h5><pre style="font-size: 0.75em;">' . $results['updateSQL'] . '</pre>' .
                 $this->makeSingleUserChangeFinalizeForm($oldUser, $newUser);
         } else {
             $htmlResult = $this->getUserNameChangeErrors($oldUser, $newUser);
@@ -283,15 +297,15 @@ class UserNameChange extends AbstractExternalModule
                     echo $this->getUserNameChangeErrors($oldUser, $newUser);
                 }
             } else {
-                echo "There is an error around line " . $counter . ".<br>";
+                echo 'There is an error around line ' . $counter . '.<br>';
                 $allUserNamesValid = false;
             }
         }
         if ($allUserNamesValid) {
             echo '<p>Validated. Able to proceed.</p>' .
                 $resultsTables .
-                "<h5>Select SQL</h5><pre>" . $selectSQL . "</pre>" .
-                "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>" . $updateSQL . "</pre>" .
+                '<h5>Select SQL</h5><pre>' . $selectSQL . '</pre>' .
+                '<h5>Update SQL</h5><pre style="font-size: 0.75em;">' . $updateSQL . '</pre>' .
                 $this->bulkUserForm($bulkCSV);
         } else {
             echo '<p style="color:red;">Input must be corrected before proceeding</p>';
@@ -307,7 +321,7 @@ class UserNameChange extends AbstractExternalModule
         $bulkCSV = $this->sanitize($_REQUEST['csvUserNames']);
         if ($bulkCSV === '') {
             $allUserNamesValid = false;
-            echo "No CSV of username received";
+            echo 'No CSV of username received';
         } else {
             $allUserNamesValid = true;
         }
@@ -325,7 +339,7 @@ class UserNameChange extends AbstractExternalModule
                     echo $this->getUserNameChangeErrors($oldUser, $newUser);
                 }
             } else {
-                echo "There is an error around line " . $counter . ".<br>";
+                echo 'There is an error around line ' . $counter . '.<br>';
                 $allUserNamesValid = false;
             }
         }
@@ -383,22 +397,23 @@ class UserNameChange extends AbstractExternalModule
             " WHERE `COLUMN_NAME` LIKE '%USER%'" .
             "AND `TABLE_SCHEMA` = '" . $db . "'";
 
-        $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COLLATION FROM INFORMATION_SCHEMA.TABLES" .
+        $tableSQL = 'SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COLLATION FROM INFORMATION_SCHEMA.TABLES' .
             " WHERE `TABLE_SCHEMA` = '" . $db . "'";
 
         $columnResult = $this->query($columnSQL, []);
         $tableResult = $this->query($tableSQL, []);
 
 
-        $pageData = "<p>The REDCap system level db_collation is set to " . $db_collation . "</p>" .
-            "<pre>" . htmlentities($columnSQL) . "</pre>" .
-            "<pre>" . htmlentities($tableSQL) . "</pre>" . "</br>" .
-            "<div class='alert alert-success'><p class='text-center'>Column Collations</p><p><strong>Rows in bold</strong>".
-            " contain a table and column that reference user and will be included in the SQL update.</p></div>";
+        $pageData = '<p>The REDCap system level db_collation is set to ' . $db_collation . '</p>' .
+            '<p style="border: 2px solid grey; border-radius: 30px;padding:20px;">' . htmlentities($columnSQL) . '</p>' .
+            '<p style="border: 2px solid grey; border-radius: 30px;padding:20px;">' . htmlentities($tableSQL) . '</p>' . '</br>' .
+            '<div class="alert alert-success">' . '<p class="text-center"><strong>Column Collations</strong></p>' .
+            '<p><strong>Rows in bold</strong>' .
+            ' contain a table and column that reference user and will be included in the SQL update.</p></div>';
 
         if ($columnResult->num_rows > 0) {
-            $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr>' .
-                '<th>Schema</th><th>Table</th><th>Column</th><th>Collation</th></tr>';
+            $resultTable = '<table class="table table-striped table-bordered table-hover"><tr>' .
+                '<th>Table</th><th>Column</th><th>Collation</th></tr>';
             while ($collation = mysqli_fetch_array($columnResult)) {
                 $resultTable .= '<tr';
                 foreach ($this->tablesAndColumns as $update) {
@@ -409,7 +424,7 @@ class UserNameChange extends AbstractExternalModule
                     }
                 }
                 $resultTable .= '>' .
-                    '<td>' . $collation['TABLE_SCHEMA'] . '</td>' .
+//                    '<td>' . $collation['TABLE_SCHEMA'] . '</td>' .
                     '<td>' . $collation['TABLE_NAME'] . '</td>' .
                     '<td>' . $collation['COLUMN_NAME'] . '</td>' .
                     '<td>' . $collation['COLLATION_NAME'] . '</td></tr>';
@@ -417,13 +432,13 @@ class UserNameChange extends AbstractExternalModule
 
             $pageData .= $resultTable . '</table>';
         } else {
-            $pageData .= '<p>There are no results for column collations.  This result is strange and should never occur</p>';
+            $pageData .= '<p>There are no results for column collations . This result is strange and should never occur </p>';
         }
 
         if ($tableResult->num_rows > 0) {
-            $pageData .= "<div class='alert alert-success'>Table Collations</div>";
-            $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr>' .
-                '<th>TABLE_SCHEMA</th><th>Table</th><th>Collation</th></tr>';
+            $pageData .= '<div class="alert alert-success">Table Collations</div>';
+            $resultTable = '<table class="table table-striped table-bordered table-hover"><tr>' .
+                '<th>Table</th><th>Collation</th></tr>';
             while ($collation = mysqli_fetch_array($tableResult)) {
                 $resultTable .= '<tr';
                 foreach ($this->tablesAndColumns as $update) {
@@ -433,14 +448,14 @@ class UserNameChange extends AbstractExternalModule
                     }
                 }
                 $resultTable .= '>' .
-                    '<td>' . $collation['TABLE_SCHEMA'] . '</td>' .
+//                    '<td>' . $collation['TABLE_SCHEMA'] . '</td>' .
                     '<td>' . $collation['TABLE_NAME'] . '</td>' .
                     '<td>' . $collation['TABLE_COLLATION'] . '</td></tr>';
             }
 
             $pageData .= $resultTable . '</table>';
         } else {
-            $pageData .= '<p>There are no results for table collations.  This result is strange and should never occur.';
+            $pageData .= '<p>There are no results for table collations. This result is strange and should never occur.</p>';
         }
         echo $pageData;
     }
@@ -493,15 +508,15 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeNavBar(): string
     {
-        return "<div>" .
+        return '<div style="display: flex;justify-content: space-around;align-items: center;min-height: 45px;background-color: #43699a"' .
+            '<ul class="user_name_change_nav_bar"' .
+            ' style="display: flex;justify-content: space-around;width: 30%;">' .
             $this->makeReloadLink() .
             $this->makeAuthMethodLink() .
             $this->makeCollationLink() .
             $this->makePasswordsLink() .
             $this->makeTablesLink() .
-            "</div>" .
-            $this->makeDisclaimer() .
-            $this->makeSunflower();
+            '</ul></div>';
     }
 
     /**
@@ -520,14 +535,14 @@ class UserNameChange extends AbstractExternalModule
     function makeBulkUploadForm(): string
     {
         $form = '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
-            '<h5>Bulk User Change</h5><p>Process multiple users.  Each row represents one user.' .
-            ' Each row must be in the format of <br><br>old_user_name,new_user_name</p>' .
-            '<form  action="' . $this->pageUrl . '" method="post" enctype="multipart/form-data">' .
+            '<h5>Bulk User Change </h5><p>Process multiple users. Each row represents one user.' .
+            ' Each row must be in the format of<br><br> old_user_name,new_user_name</p>' .
+            '<form action = "' . $this->pageUrl . '" method = "post" enctype = "multipart/form-data">' .
             '<div class="form-group">' .
             '<label for="csvUserNames">Paste in the csv data below</label>' .
-            '<textarea name="csvUserNames" id="csvUserNames" class="form-control" rows="5"></textarea>' .
+            '<textarea name = "csvUserNames" id = "csvUserNames" class="form-control" rows="5"></textarea>' .
             '</div>' .
-            '<button class="btn btn-success" type="submit" name="form_action" value="bulk_preview">Preview</button>' .
+            '<button class="btn btn-success" type = "submit" name = "form_action" value="bulk_preview">Preview</button>' .
             '</form></div>';
         return $form;
     }
@@ -540,8 +555,8 @@ class UserNameChange extends AbstractExternalModule
         $table = '<p>The table below contains every table that could be affected when the user name changes.' .
             ' Your version of REDCap may or may not have one of the tables below.' .
             ' If "Yes" is in the In DB column it means your database has that table.' .
-            ' If "No" is in the In DB column it means your database does not have that table.</p>' .
-            ' NOTE: Column names are not checked!.  If the module crashes during a preview do NOT use it.</p>' .
+            ' If "No" is in the In DB column it means your database does not have that table.' .
+            ' NOTE: Column names are not checked!. If the module crashes during a preview do NOT use it.</p>' .
             '<table class="table table-striped table-condensed">' .
             '<tr><th>Table</th><th>Column</th><th>in DB</th><th>Is log Table</th></tr>';
         foreach ($this->tablesAndColumns as $tableAndColumn) {
@@ -578,7 +593,7 @@ class UserNameChange extends AbstractExternalModule
             '<form action="' . $this->pageUrl . '" method = "POST">' .
             '<div class="form-group">' .
             '<label for="old_name">Old Username:</label>' .
-            '<select name="old_name" id="old_name" class="form-control" >';
+            '<select name="old_name" id="old_name" class="form-control">';
         foreach ($this->users as $user) {
             $form .= '<option value="' . $user['username'] . '"';
             if ($oldUserName === $user['username']) {
@@ -599,9 +614,12 @@ class UserNameChange extends AbstractExternalModule
             '</div>' .
             '<div class="form-group">';
         if ($this->action === 'page_load') {
-            $form .= '<button class="btn btn-success" style="margin-right: 30px;" type="submit" name="form_action" value="single_user_preview">Review' . '</button>';
+            $form .= '<button class="btn btn-success" ' .
+                'style="margin-right: 30px;" type="submit" name="form_action"' .
+                ' value="single_user_preview">Review</button>';
         } else if ($this->action === 'single_user_preview') {
-            $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">Commit Username Change</button>';
+            $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">' .
+                'Commit Username Change</button>';
         } else {
             $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="whoops">Whoops</button>';
         }
@@ -619,7 +637,7 @@ class UserNameChange extends AbstractExternalModule
     private function makeSingleUserChangeFinalizeForm($oldUser, $newUser): string
     {
 
-        if ($this->include_logs) {
+        if ($this->includeLogs) {
             $form_include_logs = true;
         } else {
             $form_include_logs = false;
@@ -639,9 +657,10 @@ class UserNameChange extends AbstractExternalModule
             '<br>' .
             '</div>' .
             '<div class="form-group form-check">' .
-            '<input type="checkbox" id="include_logs" name="include_logs" class="form-check-input" readonly hidden value="' . $form_include_logs . '"';
+            '<input type="checkbox" id="include_logs" name="include_logs" class="form-check-input" readonly hidden value="' .
+            $form_include_logs . '"';
 
-        if ($this->include_logs) {
+        if ($this->includeLogs) {
             $form .= ' checked';
         }
         $form .= '>' .
@@ -679,19 +698,27 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeReloadLink(): string
     {
+        $url = $this->pageUrl;
         $parameters = "";
+        $actionStyle = '';
+        echo $this->action;
+        if ($this->action === 'page_load' ||
+            $this->action === 'single_user_preview' ||
+            $this->action === 'single_user_change') {
+            $actionStyle = $this->actionStyle;
+        }
         if (isset($_REQUEST['old_name'])) {
             $parameters .= '&old_name=' . $this->sanitize($_REQUEST['old_name']);
         }
         if (isset($_REQUEST['new_name'])) {
             $parameters .= '&new_name=' . $this->sanitize($_REQUEST['new_name']);
         }
-        $url = $this->pageUrl;
         if ($parameters !== '') {
             $url .= $parameters;
         }
-        return '<a class="btn btn-primary" style="margin:15px;" href="' .
-            $url . '">Change User</a>';
+        return '<li style="list-style:none;"><a href="' .
+            $url . '" style="' . $this->linkStyle . $actionStyle . '">' .
+            'Change User</a></li>';
     }
 
     /**
@@ -700,8 +727,13 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeAuthMethodLink(): string
     {
-        return '<a class="btn btn-primary"  style="margin:15px;" href="' .
-            $this->pageUrl . '&action=auth_methods_preview">Auth Methods</a>';
+        $actionStyle = '';
+        if ($this->action === 'auth_methods_preview') {
+            $actionStyle = $this->actionStyle;
+        }
+        return '<li style="list-style:none;"><a href="' .
+            $this->pageUrl . '&action=auth_methods_preview" style="' . $this->linkStyle . $actionStyle .
+            '">Auth Methods</a></li>';
     }
 
     /**
@@ -710,8 +742,13 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeCollationLink(): string
     {
-        return '<a class="btn btn-primary"  style="margin:15px;" href="' .
-            $this->pageUrl . '&action=collation">DB Collations</a>';
+        $actionStyle = '';
+        if ($this->action === 'collation') {
+            $actionStyle = $this->actionStyle;
+        }
+        return '<li style="list-style:none;"><a href="' .
+            $this->pageUrl . '&action=collation" style="' . $this->linkStyle . $actionStyle .
+            '">DB Collations</a></li>';
     }
 
     /**
@@ -720,8 +757,13 @@ class UserNameChange extends AbstractExternalModule
     private
     function makePasswordsLink(): string
     {
-        return '<a class="btn btn-primary"  style="margin:15px;" href="' .
-            $this->pageUrl . '&action=passwords">Password Info</a>';
+        $actionStyle = '';
+        if ($this->action === 'passwords') {
+            $actionStyle = $this->actionStyle;
+        }
+        return '<li style="list-style:none;"><a href="' .
+            $this->pageUrl . '&action=passwords" style="' . $this->linkStyle . $actionStyle .
+            '">Password Info</a></li>';
     }
 
     /**
@@ -729,8 +771,13 @@ class UserNameChange extends AbstractExternalModule
      */
     private function makeTablesLink(): string
     {
-        return '<a class="btn btn-primary"  style="margin:15px;" href="' .
-            $this->pageUrl . '&action=tables">Tables</a>';
+        $actionStyle = '';
+        if ($this->action === 'tables') {
+            $actionStyle = $this->actionStyle;
+        }
+        return '<li style="list-style:none;"><a href="' .
+            $this->pageUrl . '&action=tables" style="' . $this->linkStyle . $actionStyle .
+            '">Tables</a></li>';
     }
 
 
@@ -754,11 +801,11 @@ class UserNameChange extends AbstractExternalModule
             }
             $authAvailable .= '</table>';
         } else {
-            $authAvailable = '<p>There are no results for auth methods.  This result is strange and should probably never occur';
+            $authAvailable = '<p>There are no results for auth methods. This result is strange and should probably never occur</p>';
         }
 
         $pageData .= '<div style="padding:20px;margin:20px; border: 2px solid pink;">' .
-            '<form><div class="form-group"  >' .
+            '<form><div class="form-group">' .
             '<label for="old_auth">Authentications in use in projects:</label>' .
             '<select name="old_auth" id="old_auth" class="form-control" onchange="generateSQL();">';
         $authFrom = "";
@@ -774,7 +821,7 @@ class UserNameChange extends AbstractExternalModule
 
         $projects = $this->getAuthenticationMethodDetails();
         if ($projects->num_rows > 0) {
-            $authInProjects = '<table  class="table table-striped table-hover table-bordered"><tr>' .
+            $authInProjects = '<table class="table table-striped table-hover table-bordered"><tr>' .
                 '<th>Project ID</th><th>Name</th><th>Auth Method</th></tr>';
             foreach ($projects as $project) {
                 $authInProjects .= '<tr><th>' . $project['project_id'] . '</th>' .
@@ -784,7 +831,7 @@ class UserNameChange extends AbstractExternalModule
             }
             $authInProjects .= '</table>';
         } else {
-            $authInProjects = '<p>There are no results for projects.  This result is strange and should never occur';
+            $authInProjects = '<p>There are no results for projects. This result is strange and should never occur.</p>';
         }
         $pageData .= $authInProjects;
 
@@ -830,13 +877,13 @@ class UserNameChange extends AbstractExternalModule
         global $db_collation;
         echo "<div class='alert alert-success'>The following tables were updated</div>";
         $sql = '';
-        $resultTable = "<table class='table table-striped'>" .
-            "<tr><th>Table</th><th>Column</th><th>Count</th><th>Error #</th></tr>";
+        $resultTable = '<table class="table table-striped">' .
+            '<tr><th>Table</th><th>Column</th><th>Count</th><th>Error #</th></tr>';
         foreach ($this->tablesAndColumns as $tableAndColumn) {
             if (!$tableAndColumn['has_table']) {
                 continue;
             }
-            if ($tableAndColumn['is_log'] && !$this->include_logs) {
+            if ($tableAndColumn['is_log'] && !$this->includeLogs) {
                 continue;
             }
 
@@ -874,14 +921,14 @@ class UserNameChange extends AbstractExternalModule
 
         $resultTable .= "</table>";
         echo $resultTable;
-        echo "<div class='alert alert-success'>Using the UPDATE following SQL:</div><pre>" . $sql . '</pre>';
+        echo '<div class="alert alert-success">Using the following UPDATE SQL:</div><pre>' . $sql . '</pre>';
 
-        $logEvent = 'Changed user name.  Old: ' . $oldUser . ' New: ' . $newUser . ' via External Module.';
+        $logEvent = 'Changed user name. Old: ' . $oldUser . ' New: ' . $newUser . ' via External Module.';
         Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
         $logId = $this->log(
             "Username Changed",
             [
-                "old User" => $newUser,
+                "Old User" => $newUser,
                 "New User" => $oldUser
             ]
         );
@@ -896,17 +943,17 @@ class UserNameChange extends AbstractExternalModule
     {
         $errorMessage = "";
         if (!$this->validateUserName($oldUser)) {
-            $errorMessage .= "The old user name is not valid.<br>";
+            $errorMessage .= 'The old user name is not valid.<br>';
         }
         if (!$this->validateUserName($newUser)) {
-            $errorMessage .= "The new user name is not valid.<br>";
+            $errorMessage .= 'The new user name is not valid.<br>';
         }
 
         if (!$this->findUser($oldUser)) {
-            $errorMessage .= "The user, $oldUser, was not found<br>";
+            $errorMessage .= 'The user, $oldUser, was not found<br>';
         }
         if ($this->findUser($newUser)) {
-            $errorMessage = $newUser . " is already in use.  An old username can not be changed to an existing username.<br>";
+            $errorMessage = $newUser . ' is already in use. An old username can not be changed to an existing username.<br>';
         }
         return $errorMessage;
     }
@@ -923,15 +970,15 @@ class UserNameChange extends AbstractExternalModule
         global $db_collation;
         $allSelectSQL = '';
         $allUpdateSQL = '';
-        $resultTable = "<table class='table table-striped'>" .
-            "<tr><th>Table</th><th>Column</th><th>Count</th></tr>";
+        $resultTable = '<table class="table table-striped">' .
+            '<tr><th>Table</th><th>Column</th><th>Count</th></tr>';
         $rowCountTotal = 0;
         foreach ($this->tablesAndColumns as $tableAndColumn) {
             if (!$tableAndColumn['has_table']) {
                 continue;
             }
 
-            if ($tableAndColumn['is_log'] && !$this->include_logs) {
+            if ($tableAndColumn['is_log'] && !$this->includeLogs) {
                 continue;
             }
 
@@ -961,7 +1008,7 @@ class UserNameChange extends AbstractExternalModule
             $rowCountTotal += db_affected_rows();
 
         }
-        $resultTable .= "</table>";
+        $resultTable .= '</table>';
         $resultArray = [
             'count' => $rowCountTotal,
             'resultTable' => $resultTable,
