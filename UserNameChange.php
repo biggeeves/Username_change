@@ -133,7 +133,7 @@ class UserNameChange extends AbstractExternalModule
     /**
      * @return array
      */
-    private function getTables()
+    private function getTablesFromSchema()
     {
         global $db;
         $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES" .
@@ -158,7 +158,7 @@ class UserNameChange extends AbstractExternalModule
 
         // todo, this isn't the right place for this.  The method should update the property anyway.
         //  Since it is not necessary on every page is it worth refactoring and specifying, or calling it good?
-        $dbTables = $this->getTables();
+        $dbTables = $this->getTablesFromSchema();
         foreach ($this->tablesAndColumns as $rowId => $tablesAndColumns) {
             if (in_array($tablesAndColumns['table'], $dbTables, true)) {
                 $this->tablesAndColumns[$rowId]['has_table'] = true;
@@ -199,15 +199,31 @@ class UserNameChange extends AbstractExternalModule
         $newUser = $this->sanitize($_REQUEST['new_name']);
         if ($this->validateUserNameChanges($oldUser, $newUser)) {
             $results = $this->previewUserChanges($oldUser, $newUser);
-            echo "Total rows found: " . $results['count'];
-            echo $results['resultTable'];
-            echo "<h5>Select SQL</h5><pre>";
-            echo $results['selectSQL'];
-            echo "</pre>";
-            echo "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>";
-            echo $results['updateSQL'];
-            echo "</pre>";
-            echo $this->makeSingleUserChangeFinalizeForm($oldUser, $newUser);
+            $htmlResult = "Total rows found: " . $results['count'] .
+                $results['resultTable'] .
+                "<h5>Select SQL</h5>" .
+                "<pre>" . $results['selectSQL'] . "</pre>" .
+                "<h5>Update SQL</h5><pre style='font-size: 0.75em;'>" . $results['updateSQL'] . "</pre>" .
+                $this->makeSingleUserChangeFinalizeForm($oldUser, $newUser);
+        } else {
+            $htmlResult = $this->getUserNameChangeErrors($oldUser, $newUser);
+        }
+        echo $htmlResult;
+    }
+
+
+    /**
+     *
+     */
+    private function singleUserChange()
+    {
+        $oldUser = $this->sanitize($_REQUEST['old_name']);
+        $newUser = $this->sanitize($_REQUEST['new_name']);
+        if ($this->singleUserUpdate($oldUser, $newUser)) {
+            echo '<div class="alert alert-secondary"><h4>Outcome: Changed User</h4>' .
+                '<p>Old: ' . $oldUser . '</p>' .
+                '<p>New: ' . $newUser . '</p>' .
+                '</div>';
         } else {
             echo $this->getUserNameChangeErrors($oldUser, $newUser);
         }
@@ -230,23 +246,6 @@ class UserNameChange extends AbstractExternalModule
         return false;
     }
 
-
-    /**
-     *
-     */
-    private function singleUserChange()
-    {
-        $oldUser = $this->sanitize($_REQUEST['old_name']);
-        $newUser = $this->sanitize($_REQUEST['new_name']);
-        if ($this->singleUserUpdate($oldUser, $newUser)) {
-            echo '<div class="alert alert-secondary"><h4>Outcome: Changed User</h4>' .
-                '<p>Old: ' . $oldUser . '</p>' .
-                '<p>New: ' . $newUser . '</p>' .
-                '</div>';
-        } else {
-            echo $this->getUserNameChangeErrors($oldUser, $newUser);
-        }
-    }
 
     /**
      *
@@ -378,19 +377,26 @@ class UserNameChange extends AbstractExternalModule
     {
         global $db_collation;
         global $db;
+
         $columnSQL = "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME " .
             "FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE `COLUMN_NAME` LIKE '%USER%'" .
             "AND `TABLE_SCHEMA` = '" . $db . "'";
+
         $tableSQL = "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COLLATION FROM INFORMATION_SCHEMA.TABLES" .
             " WHERE `TABLE_SCHEMA` = '" . $db . "'";
+
         $columnResult = $this->query($columnSQL, []);
+        $tableResult = $this->query($tableSQL, []);
+
+
         $pageData = "<p>The REDCap system level db_collation is set to " . $db_collation . "</p>" .
-            "<pre>" . $columnSQL . "</pre>" .
-            "<pre>" . $tableSQL . "</pre>" . "</br>" .
-            "<p>Rows in bold contain a table and column that reference user and will be included in the SQL update.</p>";
+            "<pre>" . htmlentities($columnSQL) . "</pre>" .
+            "<pre>" . htmlentities($tableSQL) . "</pre>" . "</br>" .
+            "<div class='alert alert-success'><p class='text-center'>Column Collations</p><p><strong>Rows in bold</strong>".
+            " contain a table and column that reference user and will be included in the SQL update.</p></div>";
+
         if ($columnResult->num_rows > 0) {
-            $pageData .= "<div class='alert alert-success'>Column Collations</div>";
             $resultTable = '<table  class="table table-striped table-bordered table-hover"><tr>' .
                 '<th>Schema</th><th>Table</th><th>Column</th><th>Collation</th></tr>';
             while ($collation = mysqli_fetch_array($columnResult)) {
@@ -411,9 +417,8 @@ class UserNameChange extends AbstractExternalModule
 
             $pageData .= $resultTable . '</table>';
         } else {
-            $pageData .= '<p>There are no results for column collations.  This result is strange and should never occur';
+            $pageData .= '<p>There are no results for column collations.  This result is strange and should never occur</p>';
         }
-        $tableResult = $this->query($tableSQL, []);
 
         if ($tableResult->num_rows > 0) {
             $pageData .= "<div class='alert alert-success'>Table Collations</div>";
