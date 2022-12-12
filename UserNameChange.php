@@ -120,10 +120,12 @@ class UserNameChange extends AbstractExternalModule
         ];
         $this->action = 'page_load';
         $form_action = $this->sanitize($_REQUEST['form_action']);
-        if ($_REQUEST['action'] === 'auth_methods_preview') {
+        if ($_REQUEST['action'] === 'read_me') {
+            $this->action = 'read_me';
+        } else if ($_REQUEST['action'] === 'auth_methods_preview') {
             $this->action = 'auth_methods_preview';
-        } else if ($_REQUEST['action'] === 'collation') {
-            $this->action = 'collation';
+        } else if ($_REQUEST['action'] === 'db_info') {
+            $this->action = 'db_info';
         } else if ($_REQUEST['action'] === 'tables') {
             $this->action = 'tables';
         } else if ($_SERVER["REQUEST_METHOD"] === "GET") {
@@ -145,7 +147,8 @@ class UserNameChange extends AbstractExternalModule
     /**
      * @return array
      */
-    private function getTablesFromSchema(): array
+    private
+    function getTablesFromSchema(): array
     {
         global $db;
         $tableSQL = 'SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES' .
@@ -161,7 +164,8 @@ class UserNameChange extends AbstractExternalModule
     /**
      *
      */
-    public function makePage(): void
+    public
+    function makePage(): void
     {
         $isSuperUser = $this->user->isSuperUser();
         if ($isSuperUser !== true) {
@@ -178,7 +182,10 @@ class UserNameChange extends AbstractExternalModule
         }
         echo $this->makeNavBar();
 
-        if ($this->action === 'page_load') {
+        echo $this->action;
+        if ($this->action === 'read_me') {
+            $this->showReadMePage();
+        } else if ($this->action === 'page_load') {
             $this->makeHomePage();
         } else if ($this->action === 'auth_methods_preview') {
             echo $this->makeAuthenticationMethodsPage();
@@ -186,10 +193,10 @@ class UserNameChange extends AbstractExternalModule
             $this->bulkUserPreview();
         } else if ($this->action === 'bulk_update') {
             $this->bulkUserUpdate();
-        } else if ($this->action === 'collation') {
-            $this->showCollations();
+        } else if ($this->action === 'db_info') {
+            $this->showDBInfo();
         } else if ($this->action === 'passwords') {
-            $this->showPasswords();
+            $this->showPasswordInfoPage();
         } else if ($this->action === 'tables') {
             $this->showTables();
         } else if ($this->action === 'single_user_preview') {
@@ -207,7 +214,8 @@ class UserNameChange extends AbstractExternalModule
     /**
      *
      */
-    private function singleUserPreview()
+    private
+    function singleUserPreview()
     {
         $oldUser = $this->sanitize($_REQUEST['old_name']);
         $newUser = $this->sanitize($_REQUEST['new_name']);
@@ -229,7 +237,8 @@ class UserNameChange extends AbstractExternalModule
     /**
      *
      */
-    private function singleUserChange()
+    private
+    function singleUserChange()
     {
         $oldUser = $this->sanitize($_REQUEST['old_name']);
         $newUser = $this->sanitize($_REQUEST['new_name']);
@@ -387,7 +396,7 @@ class UserNameChange extends AbstractExternalModule
      *
      */
     private
-    function showCollations(): void
+    function showDBInfo(): void
     {
         global $db_collation;
         global $db;
@@ -404,10 +413,16 @@ class UserNameChange extends AbstractExternalModule
         $tableResult = $this->query($tableSQL, []);
 
 
-        $pageData = '<p>The REDCap system level db_collation is set to ' . $db_collation . '</p>' .
-            '<p style="border: 2px solid grey; border-radius: 30px;padding:20px;">' . htmlentities($columnSQL) . '</p>' .
-            '<p style="border: 2px solid grey; border-radius: 30px;padding:20px;">' . htmlentities($tableSQL) . '</p>' . '</br>' .
-            '<div class="alert alert-success">' . '<p class="text-center"><strong>Column Collations</strong></p>' .
+        $pageData = '<p>The underlying database tables used by REDCap and your institution may be slightly different thatn the tables listed below.</p>' .
+            '<p>In order to change a username the database must be querried and references to the old usernmaen located.</p>' .
+            '<p>A collation is a set of rules that tell the database how to compare and sort the character dat.</p>' .
+            '<p>The REDCap system level db_collation is set to ' . $db_collation . '</p>' .
+            '<p>Run two SQL statements below to view the database and table collations.</p>' .
+            '<p><strong>Query 1</strong><p>' .
+            '<code>' . htmlentities($columnSQL) . '</code>' .
+            '<p><strong>Query 2</strong><p>' .
+            '<code>' . htmlentities($tableSQL) . '</code>' . '</br>' .
+            '<div class="alert alert-success">' . '<p class="text-center"><strong>Database Info</strong></p>' .
             '<p><strong>Rows in bold</strong>' .
             ' contain a table and column that reference user and will be included in the SQL update.</p></div>';
 
@@ -463,7 +478,20 @@ class UserNameChange extends AbstractExternalModule
     /**
      *
      */
-    private function showPasswords()
+    private
+    function showReadMePage(): void
+    {
+        echo file_get_contents(__DIR__ . '/html/readme.html');
+
+        $logEvent = 'Viewed readme via External Module.';
+        Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
+    }
+
+    /**
+     *
+     */
+    private
+    function showPasswordInfoPage(): void
     {
         echo file_get_contents(__DIR__ . '/html/passwords.html');
 
@@ -474,7 +502,8 @@ class UserNameChange extends AbstractExternalModule
     /**
      *
      */
-    private function showTables()
+    private
+    function showTables(): void
     {
         echo $this->makeTableList();
     }
@@ -511,9 +540,10 @@ class UserNameChange extends AbstractExternalModule
         return '<div style="display: flex;justify-content: space-around;align-items: center;min-height: 45px;background-color: #43699a"' .
             '<ul class="user_name_change_nav_bar"' .
             ' style="display: flex;justify-content: space-around;width: 30%;">' .
+            $this->makeReadMeLink() .
             $this->makeReloadLink() .
             $this->makeAuthMethodLink() .
-            $this->makeCollationLink() .
+            $this->makeDBInfoLink() .
             $this->makePasswordsLink() .
             $this->makeTablesLink() .
             '</ul></div>';
@@ -550,13 +580,14 @@ class UserNameChange extends AbstractExternalModule
     /**
      * @return string
      */
-    private function makeTableList()
+    private
+    function makeTableList(): string
     {
-        $table = '<p>The table below contains every table that could be affected when the user name changes.' .
+        $table = '<p>The tables below contains every table that could be affected by this External Module when the username changes.' .
             ' Your version of REDCap may or may not have one of the tables below.' .
             ' If "Yes" is in the In DB column it means your database has that table.' .
             ' If "No" is in the In DB column it means your database does not have that table.' .
-            ' NOTE: Column names are not checked!. If the module crashes during a preview do NOT use it.</p>' .
+            ' NOTE: Column names are not checked!. <strong>If the module crashes during a preview do NOT use it.</strong></p>' .
             '<table class="table table-striped table-condensed">' .
             '<tr><th>Table</th><th>Column</th><th>in DB</th><th>Is log Table</th></tr>';
         foreach ($this->tablesAndColumns as $tableAndColumn) {
@@ -634,7 +665,8 @@ class UserNameChange extends AbstractExternalModule
      * @param $newUser
      * @return string
      */
-    private function makeSingleUserChangeFinalizeForm($oldUser, $newUser): string
+    private
+    function makeSingleUserChangeFinalizeForm($oldUser, $newUser): string
     {
 
         if ($this->includeLogs) {
@@ -644,15 +676,15 @@ class UserNameChange extends AbstractExternalModule
         }
 
 
-        $form = '<h4>Please review the information above and below for accuracy.' .
-            'You agree to take all responsibility for running this code. Pressing the button below can not be undone.</h4>' .
+        $form = '<h4>Please review the information above and below for accuracy. ' .
+            'You agree to take full responsibility for running this code. Pressing the button below can not be undone.</h4>' .
             '<div class="card p-3"><form action="' . $this->pageUrl . '" method = "POST">' .
             '<div class="form-group">' .
-            '<label for="old_name">Old Username: ' . $oldUser . '</label>' .
+            '<label for="old_name"><strong>Old Username:</strong> ' . $oldUser . '</label>' .
             '<input name="old_name" id="old_name" class="form-control" value="' . $oldUser . '" readonly hidden>' .
             '</div>' .
             '<div class="form-group">' .
-            '<label for="new_name">New Username: ' . $newUser . '</label>' .
+            '<label for="new_name"><strong>New Username:</strong> ' . $newUser . '</label>' .
             '<input type="text" id="new_name" name="new_name" class="form-control" readonly hidden value="' . $newUser . '">' .
             '<br>' .
             '</div>' .
@@ -664,7 +696,7 @@ class UserNameChange extends AbstractExternalModule
             $form .= ' checked';
         }
         $form .= '>' .
-            '<label for="include_logs" class="form-check-label">Include logs:';
+            '<label for="include_logs" class="form-check-label"><strong>Include logs:</strong>';
         if ($form_include_logs) {
             $form .= " Yes";
         } else {
@@ -683,7 +715,8 @@ class UserNameChange extends AbstractExternalModule
     /**
      * @return bool
      */
-    private function set_include_logs()
+    private
+    function set_include_logs(): bool
     {
         if (isset($_REQUEST['include_logs']) && $_REQUEST['include_logs'] = 1) {
             return true;
@@ -691,6 +724,20 @@ class UserNameChange extends AbstractExternalModule
         return false;
     }
 
+    /**
+     * @return string
+     */
+    private
+    function makeReadMeLink(): string
+    {
+        $actionStyle = '';
+        if ($this->action === 'read_me') {
+            $actionStyle = $this->actionStyle;
+        }
+        return '<li style="list-style:none;"><a href="' .
+            $this->pageUrl . '&action=read_me" style="' . $this->linkStyle . $actionStyle .
+            '">Read Me</a></li>';
+    }
 
     /**
      * @return string
@@ -701,7 +748,6 @@ class UserNameChange extends AbstractExternalModule
         $url = $this->pageUrl;
         $parameters = "";
         $actionStyle = '';
-        echo $this->action;
         if ($this->action === 'page_load' ||
             $this->action === 'single_user_preview' ||
             $this->action === 'single_user_change') {
@@ -740,15 +786,15 @@ class UserNameChange extends AbstractExternalModule
      * @return string
      */
     private
-    function makeCollationLink(): string
+    function makeDBInfoLink(): string
     {
         $actionStyle = '';
-        if ($this->action === 'collation') {
+        if ($this->action === 'db_info') {
             $actionStyle = $this->actionStyle;
         }
         return '<li style="list-style:none;"><a href="' .
-            $this->pageUrl . '&action=collation" style="' . $this->linkStyle . $actionStyle .
-            '">DB Collations</a></li>';
+            $this->pageUrl . '&action=db_info" style="' . $this->linkStyle . $actionStyle .
+            '">DB Info</a></li>';
     }
 
     /**
@@ -769,7 +815,8 @@ class UserNameChange extends AbstractExternalModule
     /**
      * @return string
      */
-    private function makeTablesLink(): string
+    private
+    function makeTablesLink(): string
     {
         $actionStyle = '';
         if ($this->action === 'tables') {
@@ -939,7 +986,8 @@ class UserNameChange extends AbstractExternalModule
      * @param $newUser
      * @return string
      */
-    private function getUserNameChangeErrors($oldUser, $newUser): string
+    private
+    function getUserNameChangeErrors($oldUser, $newUser): string
     {
         $errorMessage = "";
         if (!$this->validateUserName($oldUser)) {
@@ -1009,22 +1057,20 @@ class UserNameChange extends AbstractExternalModule
 
         }
         $resultTable .= '</table>';
-        $resultArray = [
+        return [
             'count' => $rowCountTotal,
             'resultTable' => $resultTable,
             'selectSQL' => $allSelectSQL,
             'updateSQL' => $allUpdateSQL
         ];
-
-        return $resultArray;
     }
 
 
     /**
-     * @param mixed $oldUser
+     * @param string $oldUser
      * @return bool
      */
-    private function findUser($oldUser): bool
+    private function findUser(string $oldUser): bool
     {
         foreach ($this->users as $user) {
             if (strtolower($user['username']) === strtolower($oldUser)) {
