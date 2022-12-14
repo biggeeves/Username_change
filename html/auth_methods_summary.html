@@ -1,14 +1,14 @@
-<p>Changing the authentication method might lock everyone out of all projects. This includes you!
+<p>Changing the authentication method might lock everyone out of all projects. <strong>This includes you!</strong>
     Unlike other things, the superusers' authentication method must be compatible with the authentication
     method of a project for them to be able to do anything.
     To change the global authentication method use the Security and Authentication page within REDCap.
     First change the authentication method using the script below.
     Before changing the REDCap&rsquo;s authentication method make sure your new username will work
     or generate the SQL script that will update your username and then run it on the database.</p>
-<p>The authentication method can be set for individual projects. When moving from one authentication system
-    to another, REDCap projects may have to switch to the new authentication method. This can be done in Project Settings.
+<p>When moving from one authentication system to another, REDCap projects may have to switch to the new authentication method.
+    The authentication method is set for individual projects in Project Settings.
     The code below is to bulk update ALL projects! Be careful! This means you may not be able to log in again when this value changes.
-    The SQL code is provided, but it is not run by this E.M. Run the code on your database, IF you feel it is accurate and appropriated.
-    Or use the code below as a starting point to write your own SQL code based on your needs. The superuser&#38;s
-    authentication method must be compatible with the authentication method of a project for them to be able to do anything.
-    Testing is your friend.</p>
+    The SQL code is provided, but it is not run by this E.M.
+    Run the code on your database, if you feel it is accurate and warranted.
+    Or use the code below as a starting point to write your own SQL code based on your needs. </p>
+<p>NOTE: REDCap Administrator's authentication method must be compatible with the authentication method of a project for them to be able to do anything within that project!</p>

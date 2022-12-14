@@ -411,61 +411,79 @@ class UserNameChange extends AbstractExternalModule
 
         $columnResult = $this->query($columnSQL, []);
         $tableResult = $this->query($tableSQL, []);
+        $boldStyle = ' style="font-weight:bold;"';
 
 
-        $pageData = '<p>The underlying database tables used by REDCap and your institution may be slightly different thatn the tables listed below.</p>' .
-            '<p>In order to change a username the database must be querried and references to the old usernmaen located.</p>' .
-            '<p>A collation is a set of rules that tell the database how to compare and sort the character dat.</p>' .
-            '<p>The REDCap system level db_collation is set to ' . $db_collation . '</p>' .
-            '<p>Run two SQL statements below to view the database and table collations.</p>' .
-            '<p><strong>Query 1</strong><p>' .
-            '<code>' . htmlentities($columnSQL) . '</code>' .
-            '<p><strong>Query 2</strong><p>' .
-            '<code>' . htmlentities($tableSQL) . '</code>' . '</br>' .
+        $pageData = '<p>The underlying database tables used by REDCap at your institution may be slightly different from the tables listed below.</p>' .
+            '<p>In order to change a username the database must be queried and references to the old username located and updated</p>' .
+            '<p>Tables may be added REDCap at anytime in the future. This External Module only updates a fixed set of tables and columns.  At some point this fixed list may become outdated by the addition of a new table that includes a username.</p>'.
+            '<p>Below is a list of all tables with a column that looks like user in it. Tables in bold are in the fixed list and will be updated.' .
+            '<p>Tables that are not in bold will not be updated</p>' .
+            '<p>SQL Snippet to help locate potential tables that may reference username:</p>' .
+            '<code>SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME <br> FROM INFORMATION_SCHEMA.COLUMNS <br> WHERE `COLUMN_NAME` LIKE "%USER%"' .
+            'and `TABLE_SCHEMA` = "' . $db . '";</code><br><br>';
             '<div class="alert alert-success">' . '<p class="text-center"><strong>Database Info</strong></p>' .
             '<p><strong>Rows in bold</strong>' .
             ' contain a table and column that reference user and will be included in the SQL update.</p></div>';
 
         if ($columnResult->num_rows > 0) {
             $resultTable = '<table class="table table-striped table-bordered table-hover"><tr>' .
-                '<th>Table</th><th>Column</th><th>Collation</th></tr>';
+                '<th>Table</th><th>Will be <br>modified</th><th>Column</th><th>Collation</th></tr>';
             while ($collation = mysqli_fetch_array($columnResult)) {
+                $tableIncludedInUpdate = false;
                 $resultTable .= '<tr';
                 foreach ($this->tablesAndColumns as $update) {
                     if (strtolower($update['table']) === strtolower($collation['TABLE_NAME']) &&
                         strtolower($update['column']) === strtolower($collation['COLUMN_NAME'])) {
-                        $resultTable .= ' style="font-weight:bold;"';
+                        $tableIncludedInUpdate = true;
                         break;
                     }
                 }
+                if ($tableIncludedInUpdate) {
+                    $resultTable .= $boldStyle;
+                }
                 $resultTable .= '>' .
-//                    '<td>' . $collation['TABLE_SCHEMA'] . '</td>' .
-                    '<td>' . $collation['TABLE_NAME'] . '</td>' .
-                    '<td>' . $collation['COLUMN_NAME'] . '</td>' .
-                    '<td>' . $collation['COLLATION_NAME'] . '</td></tr>';
+                    '<td>' . htmlspecialchars($collation['TABLE_NAME'], ENT_QUOTES) . '</td>';
+                if ($tableIncludedInUpdate) {
+                    $resultTable .= '<td>Yes</td>';
+                } else {
+                    $resultTable .= '<td>No</td>';
+                }
+                $resultTable .= '<td>' . htmlspecialchars($collation['COLUMN_NAME'], ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($collation['COLLATION_NAME'], ENT_QUOTES) . '</td></tr>';
             }
 
             $pageData .= $resultTable . '</table>';
         } else {
-            $pageData .= '<p>There are no results for column collations . This result is strange and should never occur </p>';
+            $pageData .= '<p>There are no results for column collations . This result is strange and should never occur.</p>';
         }
+        $pageData .= '<p>A collation is a set of rules that tell the database how to compare and sort the character data. In other words defines how the match is made on username.</p>' .
+            '<p>The REDCap system level db_collation is set to ' . $db_collation . '</p>' .
+            '<p>Run two SQL statements below to view the database and table collations.</p>' .
+            '<p><strong>Query 1</strong><p>' .
+            '<code>' . htmlentities($columnSQL) . '</code>' .
+            '<p><strong>Query 2</strong><p>' .
+            '<code>' . htmlentities($tableSQL) . '</code>' . '</br>';
 
         if ($tableResult->num_rows > 0) {
             $pageData .= '<div class="alert alert-success">Table Collations</div>';
             $resultTable = '<table class="table table-striped table-bordered table-hover"><tr>' .
                 '<th>Table</th><th>Collation</th></tr>';
             while ($collation = mysqli_fetch_array($tableResult)) {
+                $tableIncludedInUpdate = false;
                 $resultTable .= '<tr';
                 foreach ($this->tablesAndColumns as $update) {
                     if (strtolower($update['table']) === strtolower($collation['TABLE_NAME'])) {
-                        $resultTable .= ' style="font-weight:bold;"';
+                        $tableIncludedInUpdate = true;
                         break;
                     }
                 }
+                if ($tableIncludedInUpdate) {
+                    $resultTable .= $boldStyle;
+                }
                 $resultTable .= '>' .
-//                    '<td>' . $collation['TABLE_SCHEMA'] . '</td>' .
-                    '<td>' . $collation['TABLE_NAME'] . '</td>' .
-                    '<td>' . $collation['TABLE_COLLATION'] . '</td></tr>';
+                    '<td>' . htmlspecialchars($collation['TABLE_NAME'], ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($collation['TABLE_COLLATION'], ENT_QUOTES) . '</td></tr>';
             }
 
             $pageData .= $resultTable . '</table>';
@@ -541,11 +559,11 @@ class UserNameChange extends AbstractExternalModule
             '<ul class="user_name_change_nav_bar"' .
             ' style="display: flex;justify-content: space-around;width: 30%;">' .
             $this->makeReadMeLink() .
+            $this->makeTablesLink() .
             $this->makeReloadLink() .
             $this->makeAuthMethodLink() .
             $this->makeDBInfoLink() .
             $this->makePasswordsLink() .
-            $this->makeTablesLink() .
             '</ul></div>';
     }
 
@@ -583,10 +601,10 @@ class UserNameChange extends AbstractExternalModule
     private
     function makeTableList(): string
     {
-        $table = '<p>The tables below contains every table that could be affected by this External Module when the username changes.' .
+        $table = '<p>This is a list tables that may have usernames that will be updated by this External Module.' .
             ' Your version of REDCap may or may not have one of the tables below.' .
             ' If "Yes" is in the In DB column it means your database has that table.' .
-            ' If "No" is in the In DB column it means your database does not have that table.' .
+            ' If "No" is in the In DB column it means your database does not have that table.  You version of REDCap may not have them.' .
             ' NOTE: Column names are not checked!. <strong>If the module crashes during a preview do NOT use it.</strong></p>' .
             '<table class="table table-striped table-condensed">' .
             '<tr><th>Table</th><th>Column</th><th>in DB</th><th>Is log Table</th></tr>';
@@ -843,8 +861,8 @@ class UserNameChange extends AbstractExternalModule
             $authAvailable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Auth Methods</th><th>Count</th></tr>';
             while ($method = mysqli_fetch_array($authMethods)) {
                 $authMethodsInUse[] = $method['auth_meth'];
-                $authAvailable .= '<tr><td>' . $method['auth_meth'] . '</td>' .
-                    '<td>' . $method['count'] . '</td></tr>';
+                $authAvailable .= '<tr><td>' . htmlspecialchars($method['auth_meth'], ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($method['count'], ENT_QUOTES) . '</td></tr>';
             }
             $authAvailable .= '</table>';
         } else {

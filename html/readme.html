@@ -1,22 +1,26 @@
-<p>
-    This module's purpose is to help guide you in renaming a username. Modifying a username might pose auditing problems, proceed with care!
-    Please proceed with caution.
+<p>The purpose of this External Module is to help guide you in renaming a username.
+    Modifying a username might pose auditing problems, proceed with care!
 </p>
-It is your responsibility to ensure that new usernames are compliant with REDCap.
-Usernames can only contain letters, numbers, underscores, hyphens, and periods.
+<p>It is your responsibility to triple check the SQL, Tables and Columns used by this External Module.</p>
+<p>It is your responsibility to ensure that new usernames are compliant with REDCap.</p>
+<p>Usernames can only contain letters, numbers, underscores, hyphens, and periods.</p>
+<p>Create a backup of your database before continuing. Know how to restore from a backup.</p>
 <p>
     Your database may have inconsistencies with the generated SQL script.
     An example is orphaned data in a child table that stops the SQL script from continuing.
-    Information about the database collations and the affected tables is under the "DB Info" tab.
+    When updating multiple usernames it is possible that a database error stops the script from continuing and all usernames past a certain point are not updated.
+    Information about the database collations and the affected tables are under the "Tables" and "DB Info" tab.
 </p>
 <p>
-    The SQL is generated before any changes are made. Please review all code before proceeding!
-    Double and triple check all SQL code before running it.
+    You preview the SQL before any changes are made. Review all code before proceeding!
+    Double check all SQL code before running it.
 </p>
-<h4>The following tabs are available:</h4>
-<p><strong>1. Read Me</strong>: Overview of the External Module.</p>
-<p><strong>2. Change User:</strong> GUI for changing a username.</p>
-<p><strong>3. Auth Method:</strong> Information about authentication methods used in your system.</p>
-<p><strong>4. DB Info:</strong> Information about your database collations and tables that will be updated when a user name changes.</p>
-<p><strong>5. Password info:</strong>  Table based authentication information.</p>
-<p><strong>6. Tables:</strong> List of tables where the username will be updated.</p>
+<h4>The tabs above are here to provide you with information about your instance of REDCap and what this module will do.</h4>
+<p><strong>1. Read Me:</strong> Overview of the External Module.</p>
+<p><strong>2. Tables:</strong> List of tables where the username will be updated.</p>
+<p><strong>3. Change User:</strong> GUI for changing a username.</p>
+<p><strong>4. Auth Method:</strong> Information about authentication methods used in your system.</p>
+<p>
+    <strong>5. DB Info:</strong> Information about your database collations and tables that will and will not be updated when a username changes.
+</p>
+<p><strong>6. Password info:</strong> Table based authentication information.</p>
