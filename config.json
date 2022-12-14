@@ -10,6 +10,17 @@
     }
   ],
   "description": "Change a username",
+  "versions": [
+    {
+      "1.0": "Initial Release"
+    },
+    {
+      "1.1.0": "minor security updates. More information is presented to the end user to help them make informed choices about changing a user name."
+    },
+    {
+      "1.1.1": "GUI Improvement and documentation."
+    }
+  ],
   "enable-every-page-hooks-on-system-pages": false,
   "links": {
     "control-center": [
@@ -22,6 +33,8 @@
     ]
   },
   "compatibility": {
-    "redcap-version-min": "12.0.8"
+    "redcap-version-min": "12.0.8",
+    "php-version-min": "8.0.0",
+    "php-version-max": "8.8.0"
   }
 }
