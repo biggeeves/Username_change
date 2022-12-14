@@ -182,7 +182,6 @@ class UserNameChange extends AbstractExternalModule
         }
         echo $this->makeNavBar();
 
-        echo $this->action;
         if ($this->action === 'read_me') {
             $this->showReadMePage();
         } else if ($this->action === 'page_load') {
