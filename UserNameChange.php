@@ -873,8 +873,11 @@ class UserNameChange extends AbstractExternalModule
             '<label for="old_auth">Authentications in use in projects:</label>' .
             '<select name="old_auth" id="old_auth" class="form-control" onchange="generateSQL();">';
         $authFrom = "";
-        foreach ($authMethodsInUse as $singleMeth) {
-            $authFrom .= '<option value="' . $singleMeth . '">' . $singleMeth . '</option>';
+        foreach ($authMethodsInUse as $singleMethod) {
+            $authFrom .= '<option value="' .
+                htmlspecialchars($singleMethod, ENT_QUOTES) . '">' .
+                htmlspecialchars($singleMethod, ENT_QUOTES) .
+                '</option>';
         }
         $pageData .= $authFrom . '</select></div>';
         $filenameAuthTo = __DIR__ . '/html/authentication_available_methods.html';
