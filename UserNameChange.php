@@ -29,9 +29,9 @@ class UserNameChange extends AbstractExternalModule
     private string $pageUrl;
 
     /**
-     * @var array
+     * @var
      */
-    private array $users;
+    private $users;
     /**
      * @var
      */
