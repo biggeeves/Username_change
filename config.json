@@ -22,6 +22,9 @@
     },
     {
       "1.1.2": "Security Improvement."
+    },
+    {
+      "1.1.3": "Bug fixes, refactor improvements and compatability with PHP 8."
     }
   ],
   "enable-every-page-hooks-on-system-pages": false,
@@ -37,7 +40,7 @@
   },
   "compatibility": {
     "redcap-version-min": "12.0.8",
-    "php-version-min": "8.0.0",
+    "php-version-min": "7.0.0",
     "php-version-max": "8.8.0"
   }
 }
