@@ -17,7 +17,7 @@
         <option value="openid_connect_table">OpenID Connect &amp; Table-based</option>
     </select></div>
 </form>
-<p>Generated SQL below.  Double and triple check the code below and then it on your database.</p>
+<p>Generated SQL below.  Double and triple check the code below and then run it on your database.</p>
 <div id="auth_changer_sql" style="padding:20px"><code>UPDATE `redcap_projects`
     SET `auth_meth` = "<span id="new_value">New</span>"
     WHERE `auth_meth` = "<span id="old_value">old</span>"</code></div>
