@@ -1048,8 +1048,6 @@ class UserNameChange extends AbstractExternalModule
      * @param $newUser
      * @return array
      */
-    #[
-        ArrayShape(['count' => "int", 'resultTable' => "string", 'selectSQL' => "string", 'updateSQL' => "string"])]
     private function previewUserChanges($oldUser, $newUser): array
     {
 // todo get this in a method and call from here as well as change user.
