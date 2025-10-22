@@ -2,16 +2,15 @@
 /**
  * REDCap External Module: Username Change
  * Adds the ability to modify a username
- * @author Greg Neils, Center for Disesase Control
+ * @author Greg Neils
  */
 
-namespace CDC\UserNameChange;
+namespace MGB\UserNameChange;
 
-use ExternalModules\ExternalModules;
+use Exception;
 use ExternalModules\AbstractExternalModule;
 use Logging;
-use Project;
-use REDCap;
+use mysqli_result;
 
 /**
  * REDCap External Module: Username Change
@@ -19,6 +18,7 @@ use REDCap;
 class UserNameChange extends AbstractExternalModule
 {
     /**
+     * all tables and columns in the Database that this EM knows about.
      * @var string[][]
      */
     private array $tablesAndColumns;
@@ -29,54 +29,113 @@ class UserNameChange extends AbstractExternalModule
     private string $pageUrl;
 
     /**
-     * @var
+     * @var object mysql_result of user_information table.
      */
-    private $users;
-    /**
-     * @var
-     */
-    private $user;
+    private object $userInformation;
 
     /**
-     * @var string
+     * @var Object REDCap User Object.
+     */
+    private object $user;
+
+    /**
+     * @var string the action that the end user requested the module do.  Example: preview user change, process bulk user change.
      */
     private string $action;
 
     /**
-     * @var bool
+     * @var bool include log tables
      */
     private bool $includeLogs;
 
     /**
-     * @var string
+     * @var string the inline styles for main navigation links.
      */
-    private string $linkStyle = 'color:white; text-decoration:none; letter-spacing:1px; font-weight:bold;';
-
+    private string $topLinkStyle = 'color:white; text-decoration:none; font-size:1.5em; font-weight:bold;';
+    /**
+     * @var string the inline styles for drop down links.
+     */
+    private string $subLinkStyle = 'text-decoration:none; letter-spacing:1px; font-weight:bold; font-size:1.5em;';
 
     /**
-     * @var string
+     * @var string the html style for an active link.
      */
     private string $actionStyle = ' font-style: italic;';
 
     /**
-     *
+     * @var bool true=Verbose Feedback, false=Minimal Feedback.
      */
-    public function __construct()
-    {
-        parent::__construct();
-        $this->user = $this->getUser();
-
-        $this->initialize();
-    }
-
+    private bool $feedbackVerbose;
+    /**
+     * SQL to turn OFF foreign key checks.
+     */
+    const FOREIGN_KEY_CHECKS_OFF = 'SET FOREIGN_KEY_CHECKS = 0;';
+    /**
+     * SQL to turn on foreign key checks
+     */
+    const FOREIGN_KEY_CHECKS_ON = 'SET FOREIGN_KEY_CHECKS = 1;';
+    /**
+     * SQL to turn OFF SQL Safe Updates
+     */
+    const SQL_SAFE_UPDATES_OFF = 'SET SQL_SAFE_UPDATES = 0;';
+    /**
+     * SQL to turn on Safe Updates
+     */
+    const SQL_SAFE_UPDATES_ON = 'SET SQL_SAFE_UPDATES = 1;';
+    /**
+     * @var string display the username field as either an open text field or a dropdown list. System Level Setting.
+     */
+    private string $oldUsernameFieldType;
+    /**
+     * @var array containing lowercased usernames from the user information table.
+     */
+    private array $userInformationArrayLowerCase;
+    /**
+     * @var array usernames from the user rights table, all lowercased.
+     */
+    private array $userRightsLowerCase;
+    /**
+     * True all usernames should be lowercased.  This is a system level option.
+     * @var bool
+     */
+    private bool $newUsernameLowerCase;
+    private bool $showFlower;
 
     /**
      *
      */
     private
-    function initialize()
+    function initialize(): void
     {
+
+        $this->user = $this->getUser();
+
+        $this->feedbackVerbose = true;
+
+        if ($this->getSystemSetting('feedback') == '0') {
+            $this->feedbackVerbose = false;
+        }
+
+        if ($this->getSystemSetting('old_username_field_type') == 'dropdown') {
+            $this->oldUsernameFieldType = 'dropdown';
+        } else {
+            $this->oldUsernameFieldType = 'text';
+        }
+
+        if (strtolower($this->getSystemSetting('new_username_case')) == 'lower') {
+            $this->newUsernameLowerCase = true;
+        } else {
+            $this->newUsernameLowerCase = false;
+        }
+
+        if (strtolower($this->getSystemSetting('show_flower')) == 'hide') {
+            $this->showFlower = false;
+        } else {
+            $this->showFlower = true;
+        }
+
         $this->tablesAndColumns = [
+            ['table' => 'redcap_log_api_allowlist', 'column' => 'username', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
             ['table' => 'redcap_log_event', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
             ['table' => 'redcap_log_event2', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
             ['table' => 'redcap_log_event3', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
@@ -86,9 +145,11 @@ class UserNameChange extends AbstractExternalModule
             ['table' => 'redcap_log_event7', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
             ['table' => 'redcap_log_event8', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
             ['table' => 'redcap_log_event9', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event10', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event11', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_event12', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
             ['table' => 'redcap_log_view', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
             ['table' => 'redcap_log_view_old ', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_user_allowlist', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
             ['table' => 'redcap_auth', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
             ['table' => 'redcap_auth_history', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
             ['table' => 'redcap_data_access_groups_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
@@ -96,45 +157,72 @@ class UserNameChange extends AbstractExternalModule
             ['table' => 'redcap_external_links_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
             ['table' => 'redcap_locking_data', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
             ['table' => 'redcap_locking_records', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_sendit_docs', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_projects', 'column' => 'project_pi_username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
             ['table' => 'redcap_project_dashboards_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
             ['table' => 'redcap_reports_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_reports_edit_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => 'AND `report_id` IN (SELECT `report_id` FROM redcap_reports )'],
+            ['table' => 'redcap_sendit_docs', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_user_allowlist', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
             ['table' => 'redcap_user_information', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_user_rights', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ' and project_id in (select project_id from redcap_projects)'],
-            ['table' => 'redcap_reports_edit_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => 'and report_id in (select report_id from redcap_reports )'],
             ['table' => 'redcap_user_information', 'column' => 'user_sponsor', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_projects', 'column' => 'project_pi_username', 'has_table' => false, 'is_log' => false, 'sql_append' => '']
+            ['table' => 'redcap_user_rights', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ' AND `project_id` IN (SELECT `project_id` FROM redcap_projects)']
         ];
 
-        $this->pageUrl = $this->getUrl('change-usernames.php');
-        $selectUserSQL = 'select `username`, `user_firstname`, `user_lastname`, `user_email`' .
-            ' from redcap_user_information ORDER BY `username`';
-        $this->users = $this->query($selectUserSQL, []);
+        $this->pageUrl = $this->getUrl('change_usernames.php');
+        $selectUserInformationSQL = 'SELECT `username`' .
+            ' FROM redcap_user_information ORDER BY `username`';
+        $this->userInformation = $this->query($selectUserInformationSQL, []);
+
+
+        $resultInformation = $this->query($selectUserInformationSQL, []);
+        $userInformationArray = [];
+
+        if ($resultInformation instanceof mysqli_result) {
+            while ($row = $resultInformation->fetch_assoc()) {
+                $userInformationArray[] = $row['username'];
+            }
+        }
+
+        $this->userInformationArrayLowerCase = array_map('strtolower', $userInformationArray);
+
+        $selectUserRightsSQL = 'SELECT `username` FROM redcap_user_rights ORDER BY `username`';
+        $userRightsResult = $this->query($selectUserRightsSQL, []);
+        $userRights = [];
+        if ($userRightsResult instanceof mysqli_result) {
+            while ($row = $userRightsResult->fetch_assoc()) {
+                $userRights[] = $row['username'];
+            }
+        }
+
+        $this->userRightsLowerCase = array_map('strtolower', $userRights);
+
+
         $validPostActions = [
-            'single_user_preview',
-            'single_user_change',
-            'bulk_preview',
-            'bulk_update'
+            'single_username_preview',
+            'single_username_change',
+            'bulk_username_preview',
+            'bulk_username_update',
+            'bulk_auth_delete_preview'
         ];
         if (isset($_REQUEST['form_action'])) {
             $form_action = $this->sanitize($_REQUEST['form_action']);
         } else {
             $form_action = '';
         }
+        $validActions = [
+            'read_me',
+            'auth_methods_preview',
+            'db_info',
+            'dictionaries',
+            'external_modules',
+            'project_users',
+            'change_username_start',
+            'single_username_change',
+        ];
         if (!isset($_REQUEST['action'])) {
             $this->action = 'read_me';
-        } else if ($_REQUEST['action'] === 'read_me') {
-            $this->action = 'read_me';
-        } else if ($_REQUEST['action'] === 'auth_methods_preview') {
-            $this->action = 'auth_methods_preview';
-        } else if ($_REQUEST['action'] === 'db_info') {
-            $this->action = 'db_info';
-        } else if ($_REQUEST['action'] === 'tables') {
-            $this->action = 'tables';
-        } else if ($_REQUEST['action'] === 'change_user_start') {
-            $this->action = 'change_user_start';
-        } else if ($_REQUEST['action'] === 'single_user_change') {
-            $this->action = 'single_user_change';
+        } else if (in_array($_REQUEST['action'], $validActions)) {
+            $this->action = $_REQUEST['action'];
         } else if ($_SERVER["REQUEST_METHOD"] === "GET") {
             if ($_REQUEST['action'] === 'passwords') {
                 $this->action = 'passwords';
@@ -142,6 +230,7 @@ class UserNameChange extends AbstractExternalModule
         } else {
             $this->action = 'read_me';
         }
+
         if ($_SERVER["REQUEST_METHOD"] === 'POST') {
             if (in_array($form_action, $validPostActions, true)) {
                 $this->action = $form_action;
@@ -149,6 +238,7 @@ class UserNameChange extends AbstractExternalModule
                 $this->action = 'read_me';
             }
         }
+
         $this->includeLogs = $this->set_include_logs();
     }
 
@@ -167,7 +257,7 @@ class UserNameChange extends AbstractExternalModule
         foreach ($tableResult as $row) {
             $tables[] = $row['TABLE_NAME'];
         }
-        return ($tables);
+        return $tables;
     }
 
     /**
@@ -176,10 +266,17 @@ class UserNameChange extends AbstractExternalModule
     public
     function makePage(): void
     {
-//        echo "<h1>Debug: This Action = $this->action </h1>";
+        $this->initialize();
+
+        if (!isset($this->action)) {
+            echo 'Unknown Action.';
+            return;
+        }
+
         $isSuperUser = $this->user->isSuperUser();
         if ($isSuperUser !== true) {
-            die('This page is unavailable.');
+            echo('This page is unavailable.');
+            return;
         }
 
         // todo, this isn't the right place for this.  The method should update the property anyway.
@@ -193,30 +290,37 @@ class UserNameChange extends AbstractExternalModule
         echo $this->makeNavBar();
 
         if ($this->action === 'read_me') {
-            $this->showReadMePage();
+            $this->echoReadMePage();
         } else if ($this->action === 'auth_methods_preview') {
             echo $this->makeAuthenticationMethodsPage();
-        } else if ($this->action === 'bulk_preview') {
-            $this->bulkUserPreview();
-        } else if ($this->action === 'bulk_update') {
-            $this->bulkUserUpdate();
+        } else if ($this->action === 'bulk_username_preview') {
+            $this->bulkUserNamePreview();
+        } else if ($this->action === 'bulk_username_update') {
+            $this->bulkUserNameUpdate();
         } else if ($this->action === 'db_info') {
             $this->showDBInfo();
+        } else if ($this->action === 'external_modules') {
+            $this->showExternalModules();
+        } else if ($this->action === 'project_users') {
+            $this->showProjectUsers();
+        } else if ($this->action === 'dictionaries') {
+            $this->showDictionariesInfoPage();
         } else if ($this->action === 'passwords') {
             $this->showPasswordInfoPage();
-        } else if ($this->action === 'tables') {
-            $this->showTables();
-        } else if ($this->action === 'change_user_start') {
-            $this->makeChangeUserPage();
-        } else if ($this->action === 'single_user_preview') {
-            $this->singleUserPreview();
-        } else if ($this->action === 'single_user_change') {
-            $this->singleUserChange();
+        } else if ($this->action === 'change_username_start') {
+            $this->makeChangeUserNamePage();
+        } else if ($this->action === 'single_username_preview') {
+            $this->singleUserNamePreview();
+        } else if ($this->action === 'single_username_change') {
+            $this->singleUserNameChange();
+        } else if ($this->action === 'bulk_auth_delete_preview') {
+            $this->bulkAuthDeletePreview();
         } else {
             echo "Sorry, " . htmlspecialchars($this->sanitize($this->action)) . " that is not an available action.";
         }
-        echo $this->makeDisclaimer();
-        echo $this->makeSunflower();
+        $this->echoDisclaimer();
+        $this->echoSunflowerHTML();
+        echo $this->getButtonCopyJS();
     }
 
 
@@ -224,40 +328,60 @@ class UserNameChange extends AbstractExternalModule
      *
      */
     private
-    function singleUserPreview()
+    function singleUserNamePreview(): void
     {
         $oldUser = $this->sanitize($_REQUEST['old_name']);
         $newUser = $this->sanitize($_REQUEST['new_name']);
         if ($this->validateUserNameChanges($oldUser, $newUser)) {
+
             $results = $this->previewUserChanges($oldUser, $newUser);
-            $htmlResult = "<h4>Number of rows that will be updated in the database: " . $results['count'] . "</h4>" .
-                $results['resultTable'] .
-                '<h5>Select SQL</h5>' .
-                '<pre>' . $results['selectSQL'] . '</pre>' .
-                '<h5>Update SQL</h5><pre style="font-size: 0.75em;">' . $results['updateSQL'] . '</pre>' .
+
+            $html = "<h4>Number of rows that will be updated in the database: " . $results['count'] . "</h4>";
+            if ($this->feedbackVerbose) {
+                $html .= $results['resultTable'] .
+                    '<h5>Select SQL</h5>' .
+                    '<pre>' .
+                    $results['selectSQL'] .
+                    '</pre>';
+
+            }
+            if ($this->newUsernameLowerCase) {
+                $html .= '<p>The new username will be lowercase</p>';
+            }
+            $html .= '<h5>Update SQL</h5><pre id="single_id_update">' .
+                self::SQL_SAFE_UPDATES_OFF . '<br>' .
+                self::FOREIGN_KEY_CHECKS_OFF . '<br>' .
+                $results['updateSQL'] . '<br>' .
+                self::SQL_SAFE_UPDATES_ON . '<br>' .
+                self::FOREIGN_KEY_CHECKS_ON .
+                '</pre>' .
                 $this->makeSingleUserChangeFinalizeForm($oldUser, $newUser);
+            $html .= '<button type="button" class="btn btn-success btn-sm" ' .
+                'onclick="unc_copy_pre_text(\'single_id_update\', this);">' .
+                'Copy the Update SQL to the Clipboard </button>';
         } else {
-            $htmlResult = $this->getUserNameChangeErrors($oldUser, $newUser);
+            $html = $this->getUserNameValidationErrors($oldUser, $newUser);
         }
-        echo $htmlResult;
+        echo $html;
     }
 
 
     /**
-     *
+     * receive an old and new username and change the tables accordingly.
      */
     private
-    function singleUserChange()
+    function singleUserNameChange(): void
     {
         $oldUser = $this->sanitize($_REQUEST['old_name']);
         $newUser = $this->sanitize($_REQUEST['new_name']);
-        if ($this->singleUserUpdate($oldUser, $newUser)) {
-            echo '<div class="alert alert-secondary"><h4>Outcome: Changed User</h4>' .
-                '<p>Old: ' . $oldUser . '</p>' .
-                '<p>New: ' . $newUser . '</p>' .
+        if ($this->singleUserNameUpdate($oldUser, $newUser)) {
+            echo '<div class="alert alert-secondary">' .
+                '<h4>Outcome: Changed User ' .
+                "$oldUser to $newUser" .
+                '</h4>' .
                 '</div>';
         } else {
-            echo $this->getUserNameChangeErrors($oldUser, $newUser);
+            echo $this->getUserNameValidationErrors($oldUser, $newUser);
         }
     }
 
@@ -268,10 +392,10 @@ class UserNameChange extends AbstractExternalModule
      * @return bool
      */
     private
-    function singleUserUpdate($oldUser, $newUser): bool
+    function singleUserNameUpdate($oldUser, $newUser): bool
     {
         if ($this->validateUserNameChanges($oldUser, $newUser)) {
-            $this->commitUserChange($oldUser, $newUser);
+            $this->commitUserNameChange($oldUser, $newUser);
             return true;
         }
 
@@ -283,17 +407,41 @@ class UserNameChange extends AbstractExternalModule
      *
      */
     private
-    function bulkUserPreview()
+    function bulkUserNamePreview(): void
     {
         $bulkCSV = $this->sanitize($_REQUEST['csvUserNames']);
         if ($bulkCSV === '') {
-            echo 'no input';
+            echo '<h4>Please use provide a CSV list of old username and new usernames. One row per change.</h4>';
             exit;
         }
+
+        $html = '';
         $allUserNamesValid = true;
         $ids = explode("\n", str_replace("\r", "", $bulkCSV));
+
+        // check for duplicate entries.
+        $uniqueIds = array_unique($ids);
+        if (count($ids) !== count($uniqueIds)) {
+            $allUserNamesValid = false;
+        }
+
+        $justOldUserNames = array_map(function ($item) {
+            return explode(',', $item)[0];
+        }, $ids);
+
+        $justNewUserNames = array_map(function ($item) {
+            return explode(',', $item)[1];
+        }, $ids);
+
+        if (count(array_unique($justOldUserNames)) !== count($uniqueIds)) {
+            $allUserNamesValid = false;
+        }
+        if (count(array_unique($justNewUserNames)) !== count($uniqueIds)) {
+            $allUserNamesValid = false;
+        }
+
+
         $counter = 0;
-        $totalAffectedRows = 0;
         $resultsTables = "";
         $selectSQL = "";
         $updateSQL = "";
@@ -303,45 +451,76 @@ class UserNameChange extends AbstractExternalModule
             if (count($names) === 2) {
                 $oldUser = $this->sanitize($names[0]);
                 $newUser = $this->sanitize($names[1]);
-                $userNamesValid = $this->validateUserNameChanges($oldUser, $newUser);
-                if ($userNamesValid) {
+                $isValid = $this->validateUserNameChanges($oldUser, $newUser);
+                if ($isValid) {
                     $results = $this->previewUserChanges($oldUser, $newUser);
-                    $totalAffectedRows += $results['count'];
                     $resultsTables .= $results['resultTable'];
                     $selectSQL .= $results['selectSQL'];
                     $updateSQL .= $results['updateSQL'];
                 } else {
                     $allUserNamesValid = false;
-                    echo '<div class="alert alert-warning"><h4>Check line ' . $counter . '. ' .
-                        $this->getUserNameChangeErrors($oldUser, $newUser) .
+                    $html .= '<div class="alert alert-warning"><h4>Check line ' . $counter . '.<br>' .
+                        "Old: $oldUser | New: $newUser" .
+                        $this->getUserNameValidationErrors($oldUser, $newUser) .
                         '</h4></div>';
                 }
             } else {
-                echo '<div class="alert alert-danger"><h4>Check line ' . $counter . ' for an extra comma or lack of one.</h4></div>';
+                $html .= '<div class="alert alert-danger"><h4>Check line ' . $counter . ' for an extra comma or lack of one.</h4></div>';
                 $allUserNamesValid = false;
             }
         }
         if ($allUserNamesValid) {
-            echo '<div class="alert alert-secondary"><h4>Validated. Please verify the data before proceeding.</h4></div>' .
-                $resultsTables .
-                '<h5>Select SQL</h5><pre>' . $selectSQL . '</pre>' .
-                '<h5>Update SQL</h5><pre style="font-size: 0.75em;">' . $updateSQL . '</pre>' .
-                $this->bulkUserForm($bulkCSV);
+            $html .= '<div class="alert alert-secondary">' .
+                '<h4>Validated. Please verify the data before proceeding.';
+            if ($this->newUsernameLowerCase) {
+                $html .= '<br>The new username will be lowercase';
+            }
+            $html .= '</h4></div>';
+            if ($this->feedbackVerbose) {
+                $html .= $resultsTables .
+                    '<h5>Select SQL</h5><pre>' . $selectSQL . '</pre>';
+            }
+            $html .= '<h5>Update SQL</h5><pre id="bulk_username_sql_update">' .
+                '-- Created ' . date('Y-m-d H:i:s') . '<br><br>' .
+                self::SQL_SAFE_UPDATES_OFF . '<br>' .
+                self::FOREIGN_KEY_CHECKS_OFF . '<br><br>' .
+                $updateSQL . '<br>' .
+                self::SQL_SAFE_UPDATES_ON . '<br>' .
+                self::FOREIGN_KEY_CHECKS_ON . '<br>' .
+                '</pre>' .
+                $this->bulkUserNameForm($bulkCSV) .
+                '<button type="button" class="btn btn-success btn-sm" ' .
+                'onclick="unc_copy_pre_text(\'bulk_username_sql_update\', this);">' .
+                'Copy the Update SQL to the Clipboard</button>';
+
         } else {
-            echo '<div class="alert alert-danger"><h4>Input must be corrected before proceeding</h4></div>';
+            $html .= '<div class="alert alert-danger"><h4>Input must be corrected before proceeding</h4></div>';
+            if (count($ids) !== count($uniqueIds)) {
+                $html .= '<div class="alert alert-danger"><h4>There are duplicate rows that need to be cleaned.</h4></div>';
+            }
+            if (count(array_unique($justOldUserNames)) !== count($uniqueIds)) {
+                $html .= '<div class="alert alert-danger"><h4>There are duplicates old usernames that need to be cleaned.</h4></div>';
+            }
+
+            if (count(array_unique($justNewUserNames)) !== count($uniqueIds)) {
+                $html .= '<div class="alert alert-danger"><h4>There are duplicates new usernames that need to be cleaned.</h4></div>';
+            }
         }
+        echo $html;
     }
 
     /**
      *
      */
     private
-    function bulkUserUpdate()
+    function bulkUserNameUpdate(): void
     {
+        $html = '';
+
         $bulkCSV = $this->sanitize($_REQUEST['csvUserNames']);
         if ($bulkCSV === '') {
             $allUserNamesValid = false;
-            echo 'No CSV of username received';
+            $html .= 'No CSV of username received';
         } else {
             $allUserNamesValid = true;
         }
@@ -356,33 +535,34 @@ class UserNameChange extends AbstractExternalModule
                 $userNamesValid = $this->validateUserNameChanges($oldUser, $newUser);
                 if (!$userNamesValid) {
                     $allUserNamesValid = false;
-                    echo $this->getUserNameChangeErrors($oldUser, $newUser);
+                    $html .= $this->getUserNameValidationErrors($oldUser, $newUser);
                 }
             } else {
-                echo 'There is an error around line ' . $counter . '.<br>';
+                $html .= 'There is an error around line ' . $counter . '.<br>';
                 $allUserNamesValid = false;
             }
         }
+
+        // if ALL usernames are valid proceed with the change.
         if ($allUserNamesValid) {
             echo '<div class="alert alert-secondary"><h4>Results of bulk upload.</h4></div>';
-// todo this is done in twice here, is there a way to reduce duplicate code?
             foreach ($ids as $id) {
                 $names = explode(',', $id, 5);
                 $oldUser = $this->sanitize($names[0]);
                 $newUser = $this->sanitize($names[1]);
-                if ($this->singleUserUpdate($oldUser, $newUser)) {
-                    echo '<div class="alert alert-secondary"><h4>Changed User</h4>' .
-                        '<p>Old Username: ' . $oldUser . '</p>' .
-                        '<p>New Username: ' . $newUser . '</p>' .
+                if ($this->singleUserNameUpdate($oldUser, $newUser)) {
+                    $html .= '<div class="alert alert-secondary"><h4>Changed ' .
+                        "$oldUser to $newUser </h4>" .
                         '</div>';
                 } else {
-                    echo $this->getUserNameChangeErrors($oldUser, $newUser);
+                    $html .= $this->getUserNameValidationErrors($oldUser, $newUser);
                 }
-                echo '<hr>';
+                $html .= '<hr>';
             }
         } else {
-            echo '<p style="color:red;">Input must be corrected before proceeding.</p>';
+            $html .= '<h3 class="alert alert-danger">Input must be corrected before proceeding.</h3>';
         }
+        echo $html;
     }
 
     /**
@@ -390,17 +570,29 @@ class UserNameChange extends AbstractExternalModule
      * @return string
      */
     private
-    function bulkUserForm($bulkCSV): string
+    function bulkUserNameForm($bulkCSV): string
     {
+        $logLabel = '<p><strong>Include logs';
+        $logLabel .= $this->includeLogs ? ' Yes' : ' No';
+        $logLabel .= '</strong></p>';
+
+        $logCheck = $this->includeLogs ? ' checked' : '';
+
+        $log = "<input type=\"checkbox\" name=\"include_logs\" hidden $logCheck>";
+
         return '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
-            '<h5>Bulk User Change</h5><p>The usernames have passed basic validation.  Clicking submit will finalize the username change.  Proceed with caution.</p>' .
+            '<h5>Bulk Username Change</h5><p>Clicking submit will finalize the username change. Proceed with caution.</p>' .
             '<form  action="' . $this->pageUrl . '" method="post" enctype="multipart/form-data">' .
+            '<p>' .
+            $logLabel .
+            '</p>' .
             '<div class="form-group">' .
-            '<label for="csvUserNames">These usernames will change:</label>' .
+            '<label for="csvUserNames">The following usernames will change:</label>' .
             '<textarea name="csvUserNames" id="csvUserNames" class="form-control" rows="5" readonly>' .
             trim($bulkCSV) . '</textarea>' .
             '</div>' .
-            '<button class="btn btn-success" type="submit" name="form_action" value="bulk_update">Submit</button>' .
+            $log .
+            '<button class="btn btn-success" type="submit" name="form_action" value="bulk_username_update">Submit</button>' .
             '</form></div>';
     }
 
@@ -412,41 +604,58 @@ class UserNameChange extends AbstractExternalModule
     {
         global $db_collation;
         global $db;
+        $boldStyle = ' style="font-weight:bold;"';
+
+        echo $this->makeTableList();
 
         $columnSQL = "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME " .
             "FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE `COLUMN_NAME` LIKE '%USER%'" .
-            "AND `TABLE_SCHEMA` = '" . $db . "'";
+            " AND `TABLE_SCHEMA` = '" . $db . "'";
 
         $tableSQL = 'SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COLLATION FROM INFORMATION_SCHEMA.TABLES' .
             " WHERE `TABLE_SCHEMA` = '" . $db . "'";
 
         $columnResult = $this->query($columnSQL, []);
         $tableResult = $this->query($tableSQL, []);
-        $boldStyle = ' style="font-weight:bold;"';
+
+        $tableCollations = [];
+        while ($row = $tableResult->fetch_assoc()) {
+            $tableCollations[$row['TABLE_NAME']] = $row['TABLE_COLLATION'];
+        }
 
 
         $pageData = '<p>The underlying database tables used by REDCap at your institution may be slightly different from the tables listed below.</p>' .
             '<p>In order to change a username the database must be queried and references to the old username located and updated</p>' .
             '<p>Tables may be added REDCap at anytime in the future. This External Module only updates a fixed set of tables and columns.  At some point this fixed list may become outdated by the addition of a new table that includes a username.</p>' .
-            '<p>Below is a list of all tables with a column that looks like user in it. Tables in bold are in the fixed list and will be updated.' .
-            '<p>Tables that are not in bold will not be updated</p>' .
-            '<p>SQL Snippet to help locate potential tables that may reference username:</p>' .
+            '<p>The list below includes all tables with at least one column containing the word user.</p>' .
+            '<ol>' .
+            '<li>Tables in bold may be included in the update.</li>' .
+            '<li>Regular entries = Detected but not updated by the module.</li>' .
+            '</ol>' .
+            '<h4>Helpful SQL Snippet to find columns with the word "user" in them:</h4>' .
             '<code>SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME <br> FROM INFORMATION_SCHEMA.COLUMNS <br> WHERE `COLUMN_NAME` LIKE "%USER%"' .
-            'and `TABLE_SCHEMA` = "' . $db . '";</code><br><br>';
-        '<div class="alert alert-success">' . '<p class="text-center"><strong>Database Info</strong></p>' .
-        '<p><strong>Rows in bold</strong>' .
-        ' contain a table and column that reference user and will be included in the SQL update.</p></div>';
+            'and `TABLE_SCHEMA` = "' . htmlspecialchars($db) . '" . </code><br><br>' .
+            '<h4>The REDCap system level db_collation is set to ' . htmlspecialchars($db_collation) . '</h4>' .
+            '<p>Helpful SQL Snippets to view colations</p>' .
+            '<p><strong>Query 1</strong><p>' .
+            '<code>' . htmlentities($columnSQL) . '</code>' .
+            '<p><strong>Query 2</strong><p>' .
+            '<code>' . htmlentities($tableSQL) . '</code>' . '</br>' .
+            '<div class="alert alert-success">' .
+            '<p class="text-center"><strong>YOUR Database Info</strong></p>' .
+            '<p><strong>Rows in bold</strong>' .
+            ' contain a table and column that reference user and will be included in the SQL update.</p></div>';
 
         if ($columnResult->num_rows > 0) {
             $resultTable = '<table class="table table-striped table-bordered table-hover"><tr>' .
-                '<th>Table</th><th>Will be <br>modified</th><th>Column</th><th>Collation</th></tr>';
-            while ($collation = mysqli_fetch_array($columnResult)) {
+                '<th>Table</th><th>Table<br>Collation</th><th>Column<br>Name</th><th>Column<br>Collation</th><th>Included</th></tr>';
+            while ($mySqlResult = mysqli_fetch_array($columnResult)) {
                 $tableIncludedInUpdate = false;
                 $resultTable .= '<tr';
                 foreach ($this->tablesAndColumns as $update) {
-                    if (strtolower($update['table']) === strtolower($collation['TABLE_NAME']) &&
-                        strtolower($update['column']) === strtolower($collation['COLUMN_NAME'])) {
+                    if (strtolower($update['table']) === strtolower($mySqlResult['TABLE_NAME']) &&
+                        strtolower($update['column']) === strtolower($mySqlResult['COLUMN_NAME'])) {
                         $tableIncludedInUpdate = true;
                         break;
                     }
@@ -455,53 +664,29 @@ class UserNameChange extends AbstractExternalModule
                     $resultTable .= $boldStyle;
                 }
                 $resultTable .= '>' .
-                    '<td>' . htmlspecialchars($collation['TABLE_NAME'] ?? '', ENT_QUOTES) . '</td>';
+                    '<td>' . htmlspecialchars($mySqlResult['TABLE_NAME'] ?? '', ENT_QUOTES) . '</td>';
+                if (key_exists($mySqlResult['TABLE_NAME'], $tableCollations)) {
+                    $resultTable .= '<td>' . htmlspecialchars($tableCollations[$mySqlResult['TABLE_NAME']]) . '</td>';
+                } else {
+                    $resultTable .= '<td>Excluded table</td>';
+                }
+                $resultTable .= '<td>' . htmlspecialchars($mySqlResult['COLUMN_NAME'] ?? '', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($mySqlResult['COLLATION_NAME'] ?? '', ENT_QUOTES) . '</td>';
                 if ($tableIncludedInUpdate) {
                     $resultTable .= '<td>Yes</td>';
                 } else {
                     $resultTable .= '<td>No</td>';
                 }
-                $resultTable .= '<td>' . htmlspecialchars($collation['COLUMN_NAME'] ?? '', ENT_QUOTES) . '</td>' .
-                    '<td>' . htmlspecialchars($collation['COLLATION_NAME'] ?? '', ENT_QUOTES) . '</td></tr>';
+                $resultTable .= '</tr>';
             }
 
             $pageData .= $resultTable . '</table>';
         } else {
-            $pageData .= '<p>There are no results for column collations . This result is strange and should never occur.</p>';
+            $pageData .= '<h3 class="alert-success alert">There are no results for column collations. This result is strange and should never occur.</h3>';
         }
-        $pageData .= '<p>A collation is a set of rules that tell the database how to compare and sort the character data. In other words defines how the match is made on username.</p>' .
-            '<p>The REDCap system level db_collation is set to ' . $db_collation . '</p>' .
-            '<p>Run two SQL statements below to view the database and table collations.</p>' .
-            '<p><strong>Query 1</strong><p>' .
-            '<code>' . htmlentities($columnSQL) . '</code>' .
-            '<p><strong>Query 2</strong><p>' .
-            '<code>' . htmlentities($tableSQL) . '</code>' . '</br>';
-
-        if ($tableResult->num_rows > 0) {
-            $pageData .= '<div class="alert alert-success">Table Collations</div>';
-            $resultTable = '<table class="table table-striped table-bordered table-hover"><tr>' .
-                '<th>Table</th><th>Collation</th></tr>';
-            while ($collation = mysqli_fetch_array($tableResult)) {
-                $tableIncludedInUpdate = false;
-                $resultTable .= '<tr';
-                foreach ($this->tablesAndColumns as $update) {
-                    if (strtolower($update['table']) === strtolower($collation['TABLE_NAME'])) {
-                        $tableIncludedInUpdate = true;
-                        break;
-                    }
-                }
-                if ($tableIncludedInUpdate) {
-                    $resultTable .= $boldStyle;
-                }
-                $resultTable .= '>' .
-                    '<td>' . htmlspecialchars($collation['TABLE_NAME'], ENT_QUOTES) . '</td>' .
-                    '<td>' . htmlspecialchars($collation['TABLE_COLLATION'], ENT_QUOTES) . '</td></tr>';
-            }
-
-            $pageData .= $resultTable . '</table>';
-        } else {
-            $pageData .= '<p>There are no results for table collations. This result is strange and should never occur.</p>';
-        }
+        $pageData .= '<h4 class="alert alert-info">A collation defines how character strings are compared and sorted.</h4>' .
+            '<p>For username matching to work correctly, collations must be compatible.</p>' .
+            '<p>If collation mismatches exist between tables/columns, the update may fail silently or behave unexpectedly.</p>';
         echo $pageData;
     }
 
@@ -509,12 +694,165 @@ class UserNameChange extends AbstractExternalModule
      *
      */
     private
-    function showReadMePage(): void
+    function echoReadMePage(): void
     {
-        echo file_get_contents(__DIR__ . '/html/readme.html');
+        include(__DIR__ . '/html/readme.html');
+    }
 
-        $logEvent = 'Viewed readme via External Module.';
-        Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
+    /**
+     * Display information about how changing a username could affect External Modules
+     * @return void
+     */
+    private function showExternalModules(): void
+    {
+        include(__DIR__ . '/html/external_modules.html');
+        $emMeta = $this->getEMsWithUser();
+        if ($emMeta->num_rows > 0) {
+            $html = '<table  class="table table-striped table-bordered table-hover">' .
+                '<tr>' .
+                '<th>PID or system.</th>' .
+                '<th>EM ID</th>' .
+                '<th>EM setting variable</th>' .
+                '</tr>';
+            while ($row = mysqli_fetch_array($emMeta)) {
+                $html .= '<tr>' .
+                    '<td>' . htmlspecialchars($row['project_id'] ?? 'System Level', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($row['external_module_id'] ?? 'Unknown', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($row['key'] ?? '', ENT_QUOTES) . '</td>' .
+                    '</tr>';
+            }
+            $html .= '</table>';
+        } else {
+            $html = '<h4 class="alert alert-success">There are no results for settings with "user" in them.</h4>';
+        }
+        echo $html;
+    }
+
+    /**
+     * Display a page with how the data access group can have an effect when changing a username.
+     * @return void
+     */
+    private function showProjectUsers(): void
+    {
+        echo '<h3 class="alert">Project Users</h3>';
+
+        // DAGs
+        $dagSQL = 'SELECT `project_id`, `group_id`, `username` FROM redcap_data_access_groups_users a ' .
+            'WHERE a.username NOT IN (SELECT `username` FROM redcap_user_information)';
+        $dagData = $this->query($dagSQL, []);
+        $dagHtml = '<h4>Dag information.</h4>' .
+            '<p>User can be assigned to a DAG but NOT have an entry in the user_information table. ' .
+            'When that happens the SQL username update query will fail because duplicate usernames are not allowed. ' .
+            'The table below is everyone that is assigned to a DAG but that does NOT belong to the user_information table.</p>';
+
+        if ($dagData->num_rows > 0) {
+            $dagHtml .= '<table class="table table-striped table-bordered table-hover">' .
+                '<tr><th>Project Id</th><th>Group Id</th><th>Username</th></tr>';
+            while ($dags = mysqli_fetch_array($dagData)) {
+                $dagHtml .= '<tr>' .
+                    '<td>' . htmlspecialchars($dags['project_id'] ?? '', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($dags['group_id'] ?? '', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($dags['username'] ?? '', ENT_QUOTES) . '</td>' .
+                    '</tr>';
+            }
+            $dagHtml .= '</table>';
+        } else {
+            $dagHtml .= '<h4 class="alert alert-success">Good news. There are no users in the redcap_data_access_groups_users table that do NOT have an entry in the user_information table.</h4>';
+        }
+
+
+        // User Rights
+        $rightsSQL = 'SELECT `project_id`, `group_id`, `username`, `role_id` FROM redcap_user_rights a ' .
+            'WHERE a.username NOT IN (SELECT `username` FROM redcap_user_information)';
+
+        $rightsData = $this->query($rightsSQL, []);
+
+
+        $rightsHtml = '<h4>Project User Rights information.</h4>' .
+            '<p>User can be assigned to a User Rights Role but NOT have an entry in the user_information table. ' .
+            'When that happens the SQL username update query will fail because duplicate usernames are not allowed. ' .
+            'The table below is everyone that is assigned to a Project but that does NOT belong to the user_information table.</p>';
+
+
+        if ($rightsData->num_rows > 0) {
+            $rightsHtml .= '<h4 class="alert alert-warning">Look into these users as they do NOT have an account in REDCap.</h4>' .
+                '<table class="table table-striped table-bordered table-hover">' .
+                '<tr><th>Project Id</th><th>Group Id</th><th>Username</th><th>Role Id</th></tr>';
+            while ($rights = mysqli_fetch_array($rightsData)) {
+                $rightsHtml .= '<tr>' .
+                    '<td>' . htmlspecialchars($rights['project_id'] ?? '', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($rights['group_id'] ?? '', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($rights['username'] ?? '', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($rights['role_id'] ?? '', ENT_QUOTES) . '</td>' .
+                    '</tr>';
+            }
+            $rightsHtml .= '</table>';
+        } else {
+            $rightsHtml = '<h4 class="alert alert-danger">Good news. There are no users in the redcap_user_rights table that do NOT have an entry in the user_information table.</h4>';
+        }
+
+
+        echo $dagHtml;
+        echo $rightsHtml;
+
+    }
+
+    /**
+     * Display data dictionary information related to changing a user.
+     * @return void
+     */
+    private function showDictionariesInfoPage(): void
+    {
+        include(__DIR__ . '/html/dictionaries.html');
+        $dictionaryMeta = $this->getDictionariesWithUser();
+        if ($dictionaryMeta->num_rows > 0) {
+            $html = '<table  class="table table-striped table-bordered table-hover">' .
+                '<tr>' .
+                '<th>PID</th>' .
+                '<th>Field Name</th>' .
+                '<th>Form Name</th>' .
+                '<th>Branching Logic</th>' .
+                '<th>Calculations</th>' .
+                '<th>misc</th>' .
+                '</tr>';
+            while ($row = mysqli_fetch_assoc($dictionaryMeta)) {
+                $html .= '<tr>' .
+                    '<td>' . htmlspecialchars($row['project_id'] ?? 'Unknown Project', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($row['field_name'] ?? 'Unknown Field', ENT_QUOTES) . '</td>' .
+                    '<td>' . htmlspecialchars($row['form_name'] ?? 'Unknown Form', ENT_QUOTES) . '</td>';
+
+                // Branching Logic
+                $html .= '<td>';
+                if (str_contains(strtolower($row['branching_logic']), 'user')) {
+                    $html .= '<strong>' .
+                        htmlspecialchars($row['branching_logic'] ?? '', ENT_QUOTES) .
+                        '</strong>';
+                }
+                $html .= '</td>';
+
+                // Calculations
+                $html .= '<td>';
+                if (str_contains(strtolower(($row['element_enum'])), 'user')) {
+                    $html .= '<strong>' .
+                        htmlspecialchars($row['element_enum'] ?? '', ENT_QUOTES) .
+                        '</strong>';
+                }
+                $html .= '</td>';
+
+                // Misc includes action tags.
+                $html .= '<td>';
+                if (str_contains(strtolower(($row['misc'])), 'user')) {
+                    $html .= '<strong>' .
+                        htmlspecialchars($row['misc'] ?? '', ENT_QUOTES) . '</td>' .
+                        '</strong>';
+                }
+                $html .= '</tr>';
+            }
+            $html .= '</table>';
+        } else {
+            $html = '<h4 class="alert alert-success">Nothing was found.</h4>';
+        }
+        echo $html;
     }
 
     /**
@@ -523,24 +861,53 @@ class UserNameChange extends AbstractExternalModule
     private
     function showPasswordInfoPage(): void
     {
-        echo file_get_contents(__DIR__ . '/html/passwords.html');
+        include(__DIR__ . '/html/passwords.html');
 
-        $logEvent = 'Viewed how to remove all passwords via External Module.';
-        Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
+        echo $this->makeBulkUserNameAuthDeleteForm();
     }
 
     /**
-     *
+     * return MySQLi result with external module settings with "user" in their configuration.
+     * @return mysqli_result
      */
-    private
-    function showTables(): void
+    private function getEMsWithUser(): mysqli_result
     {
-        echo $this->makeTableList();
+        $sql = "SELECT external_module_id, project_id, `key` " .
+            "FROM redcap_external_module_settings " .
+            "WHERE `key` LIKE '%user%' " .
+            "ORDER BY project_id, external_module_id;";
+        return $this->query($sql, []);
+
+    }
+
+    /**
+     * Get all Project Data Dictionaries with anything related to user-name or username.
+     * @return mysqli_result
+     */
+    private function getDictionariesWithUser(): mysqli_result
+    {
+        $limitPid = intval($_REQUEST['limit_pid']);
+        $sql = 'SELECT `project_id`, `field_name`, `form_name`, `branching_logic`, `element_enum`, `misc` ' .
+            'FROM `redcap_metadata` ' .
+            "WHERE (`misc` LIKE '%USERNAME%' " .
+            "OR `misc` LIKE '%[user-name]%' " .
+            "OR `misc` LIKE '%@APPUSERNAME-APP%' " .
+            "OR `element_enum` LIKE '%[user-name]%'" .
+            "OR `branching_logic` LIKE '%[user-name]%')";
+        if ($limitPid > 0) {
+            $sql .= ' AND project_id = ' . $limitPid;
+        }
+
+        $sql .= " LIMIT 1000; ";
+        echo "<pre>$sql</pre>";
+        return $this->query($sql, []);
+
     }
 
 
     /**
-     * @param string|null $data
+     * accepts a string of data and cleans it using a Base REDCap function.
+     * @param string|null $data the data to be sanitized.
      * @return string
      */
     private
@@ -550,79 +917,99 @@ class UserNameChange extends AbstractExternalModule
             return '';
         }
         // Note label_decode is a base REDCap function for cleaning data in a specific way.
-        $data = strtolower(trim(stripslashes(label_decode($data))));
+        $data = trim(stripslashes(label_decode($data)));
+        if ($this->newUsernameLowerCase) {
+            $data = strtolower($data);
+        }
         return htmlspecialchars($data);
     }
 
     /**
-     *
+     * display the Single User upload form and the bulk upload form.
      */
     private
-    function makeChangeUserPage(): void
+    function makeChangeUserNamePage(): void
     {
         echo $this->makeSingleUserForm();
-        echo $this->makeBulkUploadForm();
+        echo $this->makeBulkUserNameUploadForm();
     }
 
     /**
+     * Create the navbar.
      * @return string
      */
     private
     function makeNavBar(): string
     {
-        return '<div style="display: flex;justify-content: space-around;align-items: center;min-height: 45px;background-color: #43699a"' .
+        return '<div style="display: flex;justify-content: space-around;align-items: center;min-height: 45px;background-color: #43699a; padding-top:20px;">' .
             '<ul class="user_name_change_nav_bar"' .
-            ' style="display: flex;justify-content: space-around;width: 30%;">' .
+            ' style="display:flex; justify-content:space-around; width:100%;">' .
             $this->makeReadMeLink() .
-            $this->makeTablesLink() .
             $this->makeChangeUserLink() .
-            $this->makeAuthMethodLink() .
+            '<li class="nav-item dropdown" style="list-style:none; ' . $this->topLinkStyle . '">' .
+            '<a class="nav-link dropdown-toggle" style="color:white;" href="#" id="uncNavbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">' .
+            'Critical Information' .
+            '</a>' .
+            '<div class="dropdown-menu" aria-labelledby="uncNavbarDropdown">' .
             $this->makeDBInfoLink() .
+            $this->makeAuthMethodLink() .
+            $this->makeEMInfoLink() .
+            $this->makeDictionaryInfoLink() .
             $this->makePasswordsLink() .
+            $this->makeProjectUsersInfoLink() .
+            '</div>' .
+            '</li>' .
             '</ul></div>';
     }
 
     /**
-     * @return string
+     * echo disclaimer HTML.
      */
     private
-    function makeDisclaimer(): string
+    function echoDisclaimer(): void
     {
-        return file_get_contents(__DIR__ . '/html/disclaimer.html');
+        include(__DIR__ . '/html/disclaimer.html');
     }
 
     /**
+     * get the Bulk Upload Form.
      * @return string
      */
     private
-    function makeBulkUploadForm(): string
+    function makeBulkUserNameUploadForm(): string
     {
-        $form = '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
-            '<h5>Bulk User Change </h5><p>Process multiple users. Each row represents one user.' .
+        return '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
+            '<h5>Bulk UserName Change </h5><p>Process multiple users. Each row represents one user. No headers.' .
             ' Each row must be in the format of<br><br> old_user_name,new_user_name</p>' .
             '<form action = "' . $this->pageUrl . '" method = "post" enctype = "multipart/form-data">' .
             '<div class="form-group">' .
             '<label for="csvUserNames">Paste in the csv data below</label>' .
             '<textarea name = "csvUserNames" id = "csvUserNames" class="form-control" rows="5"></textarea>' .
             '</div>' .
-            '<button class="btn btn-success" type = "submit" name = "form_action" value="bulk_preview">Preview</button>' .
+            '<div class="form-group form-check">' .
+            '<input type="checkbox" id="include_logs" name="include_logs" class="form-check-input">' .
+            '<label for="include_logs" class="form-check-label">Include logs:</label>' .
+            '</div>' .
+            '<button class="btn btn-success" type = "submit" name = "form_action" value="bulk_username_preview">Preview</button>' .
             '</form></div>';
-        return $form;
     }
 
     /**
+     * Create a list of all tables that are known and related metadata.
      * @return string
      */
     private
     function makeTableList(): string
     {
-        $table = '<p>This is a list tables that may have usernames that will be updated by this External Module.' .
+        $table = '<div class="alert alert-success">' .
+            '<h4 class="text-center"><strong>Known database columns.</strong></h4></div>' .
+            '<p>This is a list tables that may have usernames that may be updated by this External Module.' .
             ' Your version of REDCap may or may not have one of the tables below.' .
-            ' If "Yes" is in the In DB column it means your database has that table.' .
-            ' If "No" is in the In DB column it means your database does not have that table.  You version of REDCap may not have them.' .
-            ' NOTE: Column names are not checked!. <strong>If the module crashes during a preview do NOT use it.</strong></p>' .
+            ' "Yes" is in the "In DB" column means the table exists and may be updated.' .
+            ' If "No" is in the "In DB" column it means your database does not exist in your instance.' .
+            ' NOTE: Column names are not verified!. <strong>If the module crashes during preview, do not continue. Manually inspect the database first.</strong></p>' .
             '<table class="table table-striped table-condensed">' .
-            '<tr><th>Table</th><th>Column</th><th>in DB</th><th>Is log Table</th></tr>';
+            '<tr><th>Table</th><th>Column</th><th>Table in DB</th><th>Is log Table</th></tr>';
         foreach ($this->tablesAndColumns as $tableAndColumn) {
             $table .= '<tr><td>' . $tableAndColumn['table'] . '</td>' .
                 '<td>' . $tableAndColumn['column'] . '</td>' .
@@ -634,6 +1021,7 @@ class UserNameChange extends AbstractExternalModule
     }
 
     /**
+     * Get the Single User Update form.
      * @return string
      */
     private
@@ -650,35 +1038,39 @@ class UserNameChange extends AbstractExternalModule
 
         $form = '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
             '<h5>Single Username Change</h5>' .
-            '<form action="' . $this->pageUrl . '&action=single_user_preview" method = "POST">' .
+            '<form action="' . $this->pageUrl . '&action=single_username_preview" method = "POST">' .
             '<div class="form-group">' .
-            '<label for="old_name">Old Username:</label>' .
-            '<select name="old_name" id="old_name" class="form-control">';
-        foreach ($this->users as $user) {
-            $form .= '<option value="' . $user['username'] . '"';
-            if ($oldUserName === $user['username']) {
-                $form .= ' selected ';
-            }
+            '<label for="old_name">Old Username </label>';
+        if ($this->oldUsernameFieldType == 'dropdown') {
+            $form .= '<select name="old_name" id="old_name" class="form-control">';
+            foreach ($this->userInformation as $user) {
+                $form .= '<option value="' . $user['username'] . '"';
+                if ($oldUserName === $user['username']) {
+                    $form .= ' selected ';
+                }
 
-            $form .= '>' . $user['username'] . '</option>';
+                $form .= '>' . $user['username'] . '</option>';
+            }
+            $form .= '</select>';
+        } else {
+            $form .= '<input type="text" name="old_name" id="old_name" class="form-control" value="' . $oldUserName . '">';
         }
-        $form .= '</select>' .
-            '</div>' .
+        $form .= '</div>' .
             '<div class="form-group">' .
-            '<label for="new_name">New Username:</label>' .
+            '<label for="new_name">New Username </label>' .
             '<input type="text" id="new_name" name="new_name" class="form-control"  value="' . $newUserName . '">' . '<br>' .
             '</div>' .
             '<div class="form-group form-check">' .
-            '<input type="checkbox" id="include_logs" name="include_logs" class="form-check-input" value="1">' .
+            '<input type="checkbox" id="include_logs" name="include_logs" class="form-check-input">' .
             '<label for="include_logs" class="form-check-label">Include logs:</label>' .
             '</div>' .
             '<div class="form-group">';
-        if ($this->action === 'change_user_start') {
+        if ($this->action === 'change_username_start') {
             $form .= '<button class="btn btn-success" ' .
                 'style="margin-right: 30px;" type="submit" name="form_action"' .
-                ' value="single_user_preview">Review</button>';
-        } else if ($this->action === 'single_user_preview') {
-            $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">' .
+                ' value="single_username_preview">Review</button>';
+        } else if ($this->action === 'single_username_preview') {
+            $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="single_username_change">' .
                 'Commit Username Change</button>';
         } else {
             $form .= '<button class="btn btn-warning" type="submit" name="form_action" value="whoops">Whoops</button>';
@@ -690,6 +1082,8 @@ class UserNameChange extends AbstractExternalModule
 
 
     /**
+     * Gets a single user form to send to REDCap to update the username.
+     * After the user submitted the single user change form, show another one to verify the data!
      * @param $oldUser
      * @param $newUser
      * @return string
@@ -698,63 +1092,64 @@ class UserNameChange extends AbstractExternalModule
     function makeSingleUserChangeFinalizeForm($oldUser, $newUser): string
     {
 
-        if ($this->includeLogs) {
-            $form_include_logs = true;
-        } else {
-            $form_include_logs = false;
-        }
-
-
-        $form = '<h4>Please review the information above and below for accuracy. ' .
+        $form = '<h4 class="alert alert-danger">Please review the information above and below for accuracy. ' .
             'You agree to take full responsibility for running this code. Pressing the button below can not be undone.</h4>' .
             '<div class="card p-3"><form action="' . $this->pageUrl . '" method = "POST">' .
             '<div class="form-group">' .
-            '<label for="old_name"><strong>Old Username:</strong> ' . $oldUser . '</label>' .
+            '<label for="old_name"><strong>Old Username </strong> ' . $oldUser . '</label>' .
             '<input name="old_name" id="old_name" class="form-control" value="' . $oldUser . '" readonly hidden>' .
             '</div>' .
             '<div class="form-group">' .
-            '<label for="new_name"><strong>New Username:</strong> ' . $newUser . '</label>' .
+            '<label for="new_name"><strong>New Username </strong> ' . $newUser . '</label>' .
             '<input type="text" id="new_name" name="new_name" class="form-control" readonly hidden value="' . $newUser . '">' .
             '<br>' .
-            '</div>' .
-            '<div class="form-group form-check">' .
-            '<input type="checkbox" id="include_logs" name="include_logs" class="form-check-input" readonly hidden value="' .
-            $form_include_logs . '"';
+            '</div>';
 
-        if ($this->includeLogs) {
-            $form .= ' checked';
-        }
-        $form .= '>' .
-            '<label for="include_logs" class="form-check-label"><strong>Include logs:</strong>';
-        if ($form_include_logs) {
-            $form .= " Yes";
-        } else {
-            $form .= " No";
-        }
-        $form .= '</label>' .
-            '</div>' .
+        // Log Tables
+        $logElement = $this->getLogElement("readonly hidden");
+        $form .= $logElement .
             '<div class="form-group">' .
-            '<button class="btn btn-warning" type="submit" name="form_action" value="single_user_change">Change User' . '</button>' .
+            '<button class="btn btn-warning" type="submit" name="form_action" value="single_username_change">Change User</button>' .
             '</div>' .
             '</form>';
         return $form;
     }
 
+    /**
+     * @param string $classes Example "readonly hidden"
+     * @return string
+     */
+    private function getLogElement(string $classes = ''): string
+    {
+        // logs
+        $checked = $this->includeLogs ? ' checked' : '';
+        $label = $this->includeLogs ? 'Yes' : 'No';
+
+        return '<div class="form-group form-check">' .
+            '<input type="checkbox" name="include_logs" class="form-check-input' .
+            ($classes ? " $classes" : '') . '"' .
+            $checked .
+            '>' .
+            '<label class="form-check-label"><strong>Include logs:</strong> ' .
+            $label .
+            '</label>' .
+            '</div>';
+    }
 
     /**
-     * @return bool
+     * @return bool return true if the logs tables are included in the update.
      */
     private
     function set_include_logs(): bool
     {
-        if (isset($_REQUEST['include_logs']) && $_REQUEST['include_logs'] = 1) {
+        if (isset($_REQUEST['include_logs']) && $_REQUEST['include_logs'] === "on") {
             return true;
         }
         return false;
     }
 
     /**
-     * @return string
+     * @return string a link to the readme file.
      */
     private
     function makeReadMeLink(): string
@@ -764,12 +1159,12 @@ class UserNameChange extends AbstractExternalModule
             $actionStyle = $this->actionStyle;
         }
         return '<li style="list-style:none;"><a href="' .
-            $this->pageUrl . '&action=read_me" style="' . $this->linkStyle . $actionStyle .
+            $this->pageUrl . '&action=read_me" style="' . $this->topLinkStyle . $actionStyle .
             '">Read Me</a></li>';
     }
 
     /**
-     * @return string
+     * @return string A link to the username change page.
      */
     private
     function makeChangeUserLink(): string
@@ -777,12 +1172,12 @@ class UserNameChange extends AbstractExternalModule
         $url = $this->pageUrl;
         $parameters = "";
         $actionStyle = '';
-        if ($this->action === 'change_user_start' ||
-            $this->action === 'single_user_preview' ||
-            $this->action === 'single_user_change') {
+        if ($this->action === 'change_username_start' ||
+            $this->action === 'single_username_preview' ||
+            $this->action === 'single_username_change') {
             $actionStyle = $this->actionStyle;
         }
-        $parameters .= '&action=change_user_start';
+        $parameters .= '&action=change_username_start';
         if (isset($_REQUEST['old_name'])) {
             $parameters .= '&old_name=' . $this->sanitize($_REQUEST['old_name']);
         }
@@ -793,12 +1188,12 @@ class UserNameChange extends AbstractExternalModule
             $url .= $parameters;
         }
         return '<li style="list-style:none;"><a href="' .
-            $url . '" style="' . $this->linkStyle . $actionStyle . '">' .
+            $url . '" style="' . $this->topLinkStyle . $actionStyle . '">' .
             'Change User</a></li>';
     }
 
     /**
-     * @return string
+     * @return string a link to the authentication method page.
      */
     private
     function makeAuthMethodLink(): string
@@ -807,13 +1202,13 @@ class UserNameChange extends AbstractExternalModule
         if ($this->action === 'auth_methods_preview') {
             $actionStyle = $this->actionStyle;
         }
-        return '<li style="list-style:none;"><a href="' .
-            $this->pageUrl . '&action=auth_methods_preview" style="' . $this->linkStyle . $actionStyle .
-            '">Auth Methods</a></li>';
+        return '<a class="dropdown-item" href="' .
+            $this->pageUrl . '&action=auth_methods_preview" style="' . $this->subLinkStyle . $actionStyle .
+            '">Authentication</a>';
     }
 
     /**
-     * @return string
+     * @return string a link to the DB information page.
      */
     private
     function makeDBInfoLink(): string
@@ -822,13 +1217,58 @@ class UserNameChange extends AbstractExternalModule
         if ($this->action === 'db_info') {
             $actionStyle = $this->actionStyle;
         }
-        return '<li style="list-style:none;"><a href="' .
-            $this->pageUrl . '&action=db_info" style="' . $this->linkStyle . $actionStyle .
-            '">DB Info</a></li>';
+        return '<a class="dropdown-item" href="' .
+            $this->pageUrl . '&action=db_info" style="' . $this->subLinkStyle . $actionStyle .
+            '">DB Info</a>';
     }
 
     /**
-     * @return string
+     * @return string a link to the EM information page.
+     */
+    private
+    function makeEMInfoLink(): string
+    {
+        $actionStyle = '';
+        if ($this->action === 'external_modules') {
+            $actionStyle = $this->actionStyle;
+        }
+        return '<a class="dropdown-item" href="' .
+            $this->pageUrl . '&action=external_modules" style="' . $this->subLinkStyle . $actionStyle .
+            '">External Models</a>';
+    }
+
+    /**
+     * @return string a link to the EM information page.
+     */
+    private
+    function makeProjectUsersInfoLink(): string
+    {
+        $actionStyle = '';
+        if ($this->action === 'project_users') {
+            $actionStyle = $this->actionStyle;
+        }
+        return '<a class="dropdown-item" href="' .
+            $this->pageUrl . '&action=project_users" style="' . $this->subLinkStyle . $actionStyle .
+            '">Project Users</a>';
+    }
+
+    /**
+     * @return string a link to the EM information page.
+     */
+    private
+    function makeDictionaryInfoLink(): string
+    {
+        $actionStyle = '';
+        if ($this->action === 'dictionaries') {
+            $actionStyle = $this->actionStyle;
+        }
+        return '<a class="dropdown-item" href="' .
+            $this->pageUrl . '&action=dictionaries" style="' . $this->subLinkStyle . $actionStyle .
+            '">Dictionaries</a>';
+    }
+
+    /**
+     * @return string a link to the password information page.
      */
     private
     function makePasswordsLink(): string
@@ -837,40 +1277,27 @@ class UserNameChange extends AbstractExternalModule
         if ($this->action === 'passwords') {
             $actionStyle = $this->actionStyle;
         }
-        return '<li style="list-style:none;"><a href="' .
-            $this->pageUrl . '&action=passwords" style="' . $this->linkStyle . $actionStyle .
-            '">Password Info</a></li>';
+        return '<a class="dropdown-item" href="' .
+            $this->pageUrl . '&action=passwords" style="' . $this->subLinkStyle . $actionStyle .
+            '">Passwords</a>';
     }
 
     /**
-     * @return string
-     */
-    private
-    function makeTablesLink(): string
-    {
-        $actionStyle = '';
-        if ($this->action === 'tables') {
-            $actionStyle = $this->actionStyle;
-        }
-        return '<li style="list-style:none;"><a href="' .
-            $this->pageUrl . '&action=tables" style="' . $this->linkStyle . $actionStyle .
-            '">Tables</a></li>';
-    }
-
-
-    /**
-     * @return string
+     * @return string retrieve the authentication method for each project and display.
+     * REDCap no longer allows different authentication methods in a project.
      */
     private
     function makeAuthenticationMethodsPage(): string
     {
         $authMethods = $this->getAuthenticationMethodSummary();
         $authMethodsInUse = [];
+
+        // Trusted static HTML
         $filename = __DIR__ . '/html/auth_methods_summary.html';
         $pageData = file_get_contents($filename);
 
         if ($authMethods->num_rows > 0) {
-            $authAvailable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Auth Methods</th><th>Count</th></tr>';
+            $authAvailable = '<table  class="table table-striped table-bordered table-hover"><tr><th>Authentication</th><th>Count</th></tr>';
             while ($method = mysqli_fetch_array($authMethods)) {
                 $authMethodsInUse[] = $method['auth_meth'];
                 $authAvailable .= '<tr><td>' . htmlspecialchars($method['auth_meth'] ?? '', ENT_QUOTES) . '</td>' .
@@ -878,7 +1305,7 @@ class UserNameChange extends AbstractExternalModule
             }
             $authAvailable .= '</table>';
         } else {
-            $authAvailable = '<p>There are no results for auth methods. This result is strange and should probably never occur</p>';
+            $authAvailable = '<h3 class="alert alert-success">There are no results for auth methods. This result is strange and should probably never occur</h3>';
         }
 
         $pageData .= '<div style="padding:20px;margin:20px; border: 2px solid pink;">' .
@@ -889,7 +1316,7 @@ class UserNameChange extends AbstractExternalModule
         foreach ($authMethodsInUse as $singleMethod) {
             $authFrom .= '<option value="' .
                 htmlspecialchars($singleMethod ?? '', ENT_QUOTES) . '">' .
-                htmlspecialchars($singleMethod ?? '', ENT_QUOTES) .
+                htmlspecialchars($singleMethod ?? 'Choose one', ENT_QUOTES) .
                 '</option>';
         }
         $pageData .= $authFrom . '</select></div>';
@@ -911,7 +1338,7 @@ class UserNameChange extends AbstractExternalModule
             }
             $authInProjects .= '</table>';
         } else {
-            $authInProjects = '<p>There are no results for projects. This result is strange and should never occur.</p>';
+            $authInProjects = '<h3 class="alert alert-success">There are no results for projects. This result is strange and should never occur.</h3>';
         }
         $pageData .= $authInProjects;
 
@@ -920,79 +1347,85 @@ class UserNameChange extends AbstractExternalModule
 
 
     /**
-     * @return string
+     * echo the HTML contents to make the CSS Flower.
      */
     private
-    function makeSunflower(): string
+    function echoSunflowerHTML(): void
     {
-        return file_get_contents(__DIR__ . '/html/flower.html');
+        if ($this->showFlower) {
+            $cssFlowerPath = $this->getUrl('css/flower.css');
+            echo '<link rel="stylesheet" type="text/css" href="' . $cssFlowerPath . '">';
+            include(__DIR__ . '/html/flower.html');
+        }
     }
 
 
     /**
-     * @return mixed
+     * @return mysqli_result return the various authentication methods utilized by projects.
      */
     private
-    function getAuthenticationMethodSummary()
+    function getAuthenticationMethodSummary(): mysqli_result
     {
         return $this->query('SELECT `auth_meth`, count(auth_meth) as count FROM redcap_projects group by auth_meth;', []);
     }
 
     /**
-     * @return mixed
+     * @return mysqli_result an array of all authentication methods.
      */
     private
-    function getAuthenticationMethodDetails()
+    function getAuthenticationMethodDetails(): mysqli_result
     {
         return $this->query('SELECT project_id, project_name, auth_meth FROM redcap_projects;', []);
     }
 
     /**
+     * Perform the SQL Update of all tables changing the old username to the new username.
      * @param $oldUser
      * @param $newUser
      */
     private
-    function commitUserChange($oldUser, $newUser): void
+    function commitUserNameChange($oldUser, $newUser): void
     {
-        global $db_collation;
-        echo "<div class='alert alert-success'><h4>The following tables were updated</h4></div>";
-        $sql = '';
-        $resultTable = '<table class="table table-striped">' .
+        $html = '';
+        $resultTable = "<div class='alert alert-success'><h4>The following tables were updated</h4></div>" .
+            '<table class="table table-striped">' .
             '<tr><th>Table</th><th>Column</th><th>Count</th><th>Error #</th></tr>';
-        foreach ($this->tablesAndColumns as $tableAndColumn) {
-            if (!$tableAndColumn['has_table']) {
+
+        $allSqlReadable = self::SQL_SAFE_UPDATES_OFF . '<br>' .
+            self::FOREIGN_KEY_CHECKS_OFF . '<br>' .
+            "-- Begin $oldUser to $newUser<br>";
+
+        $this->query(self::SQL_SAFE_UPDATES_OFF, []);
+        $this->query(self::FOREIGN_KEY_CHECKS_OFF, []);
+
+        foreach ($this->tablesAndColumns as $entry) {
+            $tableName = $entry['table'];
+            $columnName = $entry['column'];
+            if (!$this->shouldIncludeInUsernameUpdate($entry)) {
+                $resultTable .= '<tr><th>' . $tableName . '</th>' .
+                    '<th>' . $columnName . '</th>' .
+                    '<th>Excluded</th>' .
+                    '</tr>';
                 continue;
             }
-            if ($tableAndColumn['is_log'] && !$this->includeLogs) {
-                continue;
+
+            $sqlUpdateQuery = "UPDATE $tableName SET `$columnName` = CAST(CONVERT(? USING LATIN1) AS CHAR CHARACTER SET UTF8MB4) WHERE `$columnName` = ?";
+
+            $sqlUpdateReadable = $this->createReadableSqlUpdate($tableName, $columnName, $oldUser, $newUser);
+
+            if ($entry['sql_append'] !== '') {
+                $sqlUpdateQuery .= " " . $entry['sql_append'];
+                $sqlUpdateReadable .= " " . $entry['sql_append'];
             }
 
-            // todo a specific table has the need for a where clause.
-            $sql_embedded_parameters = 'UPDATE ' . $tableAndColumn['table'] .
-                ' SET `' . $tableAndColumn['column'] . '` = ' .
-                '"' . $newUser . '"' .
-                ' WHERE `' . $tableAndColumn['column'] . '` = ' .
-                '"' . $oldUser . '"';
-            if ($tableAndColumn['sql_append'] !== '') {
-                $sql_embedded_parameters .= " " . $tableAndColumn['sql_append'];
-            } else {
-                $sql_embedded_parameters .= ' COLLATE ' . $db_collation;
-            }
-            $sql_embedded_parameters .= ';';
-            $sql .= $sql_embedded_parameters . "<br>";
+            $sqlUpdateQuery .= ';';
+            $sqlUpdateReadable .= ';';
+            $allSqlReadable .= $sqlUpdateReadable . "<br>";
 
-//            $sql_with_parameters = 'UPDATE ' . $update['table'] .
-//                ' SET `' . $update['column'] . '` = ?' .
-//                ' WHERE `' . $update['column'] . '` = ?' .
-//                ' COLLATE ' . $db_collation . ';';
-//            echo $sql_with_parameters;
-//
-//            $sql_parameters = [$newUser, $oldUser, $db_collation];
-//            $x = $this->query($sql_with_parameters, $sql_parameters);
+            $result = $this->query($sqlUpdateQuery, [$newUser, $oldUser]);
 
-            $result = $this->query($sql_embedded_parameters, []);
-            $resultTable .= '<tr><th>' . $tableAndColumn['table'] . '</th>' .
-                '<th>' . $tableAndColumn['column'] . '</th>' .
+            $resultTable .= '<tr><th>' . $tableName . '</th>' .
+                '<th>' . $columnName . '</th>' .
                 '<th>' . db_affected_rows() . '</th>';
             if (isset($result->error)) {
                 $resultTable .= '<th>' . $result->error . '</th>';
@@ -1000,156 +1433,436 @@ class UserNameChange extends AbstractExternalModule
                 $resultTable .= '<th>0</th>';
             }
             $resultTable .= '</tr>';
-
         }
 
+        $this->query(self::SQL_SAFE_UPDATES_ON, []);
+        $this->query(self::FOREIGN_KEY_CHECKS_ON, []);
+
+
+        $sqlUpdateUserCommentsReadable = $this->getSqlUpdateUserCommentsReadable($oldUser, $newUser);
+        $commentResult = $this->submitSqlUpdateUserComments($oldUser, $newUser);
+
+        $allSqlReadable .= $sqlUpdateUserCommentsReadable . '<br>' .
+            self::SQL_SAFE_UPDATES_ON . '<br>' .
+            self::FOREIGN_KEY_CHECKS_ON . '<br>' .
+            "-- End $oldUser to $newUser<br>";
+
         $resultTable .= "</table>";
-        echo $resultTable;
-        echo '<div class="alert alert-success">Using the following UPDATE SQL:</div><pre>' . $sql . '</pre>';
+        if ($this->feedbackVerbose) {
+            $html .= $resultTable;
+            $html .= '<div class="alert alert-success">Using the following UPDATE SQL:</div>' .
+                '<pre>' .
+                $allSqlReadable .
+                '</pre>';
+        }
 
         $logEvent = 'Changed user name. Old: ' . $oldUser . ' New: ' . $newUser . ' via External Module.';
         Logging::logEvent("", "redcap_auth", $logEvent, "Record", "display", $logEvent);
-        $logId = $this->log(
+        $this->log(
             "Username Changed",
             [
                 "Old User" => $newUser,
                 "New User" => $oldUser
             ]
         );
+        echo $html;
+
     }
 
     /**
-     * @param $oldUser
-     * @param $newUser
-     * @return string
+     * The User Comments field is a different query from the rest.
+     * @param string $oldUser Old Username
+     * @param string $newUser New Username
+     * @return string the SQL statement to append the username changes to the user comments field.
+     */
+    private function getSqlUpdateUserCommentsReadable(string $oldUser, string $newUser): string
+    {
+        $now = strtotime("now");
+        $logTime = date("Y-m-d H:i:s", $now);
+        return 'UPDATE redcap_user_information SET ' .
+            "`user_comments` = CONCAT(COALESCE(`user_comments`, \"\"), '$logTime Old username=$oldUser New username=$newUser') " .
+            " WHERE `username` = \"$newUser\" LIMIT 1;";
+    }
+
+    /**
+     * The User Comments field is a different query from the rest.
+     * @param string $oldUser Old Username
+     * @param string $newUser New Username
+     *
+     * NOTE, PHP STORM SAYS THIS RETURNS A MYSQLI_RESULT.  IT ACTUALLY RETURNS A BOOLEAN.
+     */
+    private function submitSqlUpdateUserComments(string $oldUser, string $newUser)
+    {
+        $now = strtotime("now");
+        $logTime = date("Y-m-d H:i:s", $now);
+        $sql = 'UPDATE redcap_user_information SET ' .
+            "`user_comments` = CONCAT(COALESCE(`user_comments`, \"\"), \"$logTime Old username=\", ?, \" New username= \", ?) " .
+            " WHERE `username` = ? LIMIT 1;";
+
+        return $this->query($sql, [$oldUser, $newUser, $newUser]);
+    }
+
+    /**
+     * The User Comments field is a different query from the rest.
+     * @param string $oldUser Old Username
+     * @param bool $parameterized true = Parameterized, False = Inline.
+     * @return string the SQL statement to append the username changes to the user comments field.
+     */
+    private function getSqlSelectUserComments(string $oldUser, bool $parameterized): string
+    {
+        if ($parameterized) {
+            return "SELECT `user_comments` FROM redcap_user_information WHERE `username` = ? LIMIT 1";
+        } else {
+            return "SELECT `user_comments` FROM redcap_user_information WHERE `username` = \"$oldUser\" LIMIT 1";
+        }
+    }
+
+    /**
+     * @param string $oldUser Old Username
+     * @param string $newUser New Username
+     * @return string an HTML string of validation errors.
      */
     private
-    function getUserNameChangeErrors($oldUser, $newUser): string
+    function getUserNameValidationErrors(string $oldUser, string $newUser): string
     {
-        $errorMessage = "";
-        if (!$this->validateUserName($oldUser)) {
-            $errorMessage .= 'The old username is not valid.<br>';
+        $errorBegin = '<h4 class="alert alert-danger">';
+        $errorMessage = '';
+        $errorEnd = '</h4>';
+        if (!$this->isValidUsername($oldUser)) {
+            $errorMessage .= '<br>The old username is not valid.';
         }
-        if (!$this->validateUserName($newUser)) {
-            $errorMessage .= 'The new username is not valid.<br>';
+        if (!$this->isValidUsername($newUser)) {
+            $errorMessage .= '<br>The new username is not valid.';
         }
 
-        if (!$this->findUser($oldUser)) {
-            $errorMessage .= "The user, $oldUser, was not found<br>";
+        if (!$this->isUserInTableInformation($oldUser)) {
+            $errorMessage .= "<br>The user, $oldUser, was not found in the user_information table.";
         }
-        if ($this->findUser($newUser)) {
-            $errorMessage = "<h2>" . $newUser . ' is already in use. <br>An old username can not be changed to an existing username.</h2>';
+
+        // Check if the new username already exists in either the user_information table or the user_rights table.
+        if ($this->countOccurrencesInTables($newUser) > 0) {
+            $errorMessage .= "<br>The username, $oldUser, can not be changed to a username, $newUser, that name already exists in one or more tables.";
+        } elseif ($this->isUserInTableRights($newUser)) {
+            $errorMessage = "<br>The username, $oldUser, can not be changed because $newUser has User Rights to a project.</h4>";
         }
-        return $errorMessage;
+        if (strlen($errorMessage) === 0) {
+            $errorMessage = 'Unknown Error.';
+        }
+        return $errorBegin . $errorMessage . $errorEnd;
     }
 
     /**
-     * @param $oldUser
-     * @param $newUser
-     * @return array
+     * @param string $oldUser Old Username
+     * @param string $newUser New Username
+     * @return array [
+     * 'count' => $rowCountTotal,
+     * 'resultTable' => $resultTable,
+     * 'selectSQL' => $allSelectSQL,
+     * 'updateSQL' => $allUpdateSQL
+     * ];
      */
-    private function previewUserChanges($oldUser, $newUser): array
+    private function previewUserChanges(string $oldUser, string $newUser): array
     {
-// todo get this in a method and call from here as well as change user.
-        global $db_collation;
-        $allSelectSQL = '';
-        $allUpdateSQL = '';
-        $resultTable = '<h4>Old Username: ' . $oldUser . ' --> New Username:' . $newUser . '</h4>' .
+        // todo get this in a method and call from here as well as change user.
+        $sqlCommentBegin = "<br>-- Start $oldUser to $newUser <br>";
+        $sqlCommentEnd = "<br>-- End $oldUser to $newUser <br>";
+
+        $allSelectSQL = $sqlCommentBegin;
+        $allUpdateSQLReadable = $sqlCommentBegin;
+        $resultTable = "<h4>Change username from $oldUser to $newUser </h4>" .
             '<table class="table table-striped caption-top">' .
             '<tr><th>Table</th><th>Column</th><th>Count</th></tr>';
         $rowCountTotal = 0;
         foreach ($this->tablesAndColumns as $tableAndColumn) {
-            if (!$tableAndColumn['has_table']) {
+            $tableName = $tableAndColumn['table'];
+            $columnName = $tableAndColumn['column'];
+
+            if (!$this->shouldIncludeInUsernameUpdate($tableAndColumn)) {
+                $resultTable .= '<tr><th>' . $tableName . '</th>' .
+                    '<th>' . $columnName . '</th>' .
+                    '<th>Excluded</th>' .
+                    '</tr>';
                 continue;
             }
 
-            if ($tableAndColumn['is_log'] && !$this->includeLogs) {
-                continue;
-            }
+            $sqlSelectQuery = "SELECT `$columnName` FROM $tableName WHERE `$columnName` = ?";
+            $sqlSelectReadable = "SELECT `$columnName` FROM $tableName WHERE `$columnName` = \"$oldUser\";";
 
-            $sql_embedded_parameters = 'SELECT ' . $tableAndColumn['column'] .
-                ' FROM ' . $tableAndColumn['table'] .
-                ' WHERE `' . $tableAndColumn['column'] . '` = ' .
-                '"' . $oldUser . '"';
-            $allSelectSQL .= $sql_embedded_parameters . "<br>";
-            $allUpdateSQL .= 'UPDATE ' . $tableAndColumn['table'] .
-                ' SET `' . $tableAndColumn['column'] . '` = ' .
-                '"' . $newUser . '"' .
-                ' WHERE `' . $tableAndColumn['column'] . '` = ' .
-                '"' . $oldUser . '"';
+            $allSelectSQL .= $sqlSelectReadable . "<br>";
+
+            $allUpdateSQLReadable .= $this->createReadableSqlUpdate($tableName, $columnName, $oldUser, $newUser);
+
             if ($tableAndColumn['sql_append'] !== '') {
-                $allUpdateSQL .= " " . $tableAndColumn['sql_append'];
-            } else {
-                $allUpdateSQL .= ' COLLATE ' . $db_collation;
+                $allUpdateSQLReadable .= " " . $tableAndColumn['sql_append'];
             }
-            $allUpdateSQL .= ';<br>';
-            $result = $this->query($sql_embedded_parameters, []);
-            // todo check the $result to make sure there was not an error.
 
-            $resultTable .= '<tr><th>' . $tableAndColumn['table'] . '</th>' .
-                '<th>' . $tableAndColumn['column'] . '</th>' .
-                '<th>' . db_affected_rows() . '</th>' .
-                '</tr>';
-            $rowCountTotal += db_affected_rows();
+            $allUpdateSQLReadable .= ';<br>';
 
+            try {
+                $result = $this->query($sqlSelectQuery, [$oldUser]);
+                $affectedRows = db_affected_rows();
+
+                $resultTable .= '<tr><th>' . $tableName . '</th>' .
+                    '<th>' . $columnName . '</th>' .
+                    '<th>' . $affectedRows . '</th>' .
+                    '</tr>';
+                $rowCountTotal += $affectedRows;
+            } catch (Exception $e) {
+                // the end user is required to see the feedback verbose.
+                $this->feedbackVerbose = true;
+
+                $resultTable .= '<tr><td colspan="3" class="text-danger display-5">Error in table '
+                    . htmlspecialchars($tableName, ENT_QUOTES) . ': '
+                    . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</td></tr>';
+            }
         }
+
+        $sqlSelectUserCommentsReadable = $this->getSqlSelectUserComments($oldUser, false);
+        $sqlUpdateUserCommentsReadable = $this->getSqlUpdateUserCommentsReadable($oldUser, $newUser);
+
+
+        $allSelectSQL .= $sqlSelectUserCommentsReadable . $sqlCommentEnd;
+        $allUpdateSQLReadable .= $sqlUpdateUserCommentsReadable . $sqlCommentEnd;
+
         $resultTable .= '</table>';
         return [
             'count' => $rowCountTotal,
             'resultTable' => $resultTable,
             'selectSQL' => $allSelectSQL,
-            'updateSQL' => $allUpdateSQL
+            'updateSQL' => $allUpdateSQLReadable
         ];
     }
 
 
     /**
-     * @param string $oldUser
-     * @return bool
+     * @param string $username Old Username
+     * @return bool true if found, false if not found
      */
-    private function findUser(string $oldUser): bool
+    private function isUserInTableInformation(string $username): bool
     {
-        foreach ($this->users as $user) {
-            if (strtolower($user['username']) === strtolower($oldUser)) {
-                return true;
-            }
-        }
-        return false;
+        return in_array(strtolower($username), $this->userInformationArrayLowerCase);
+    }
+
+    /**
+     * @param string $username
+     * @return bool true if found, false if not found
+     */
+    private function isUserInTableRights(string $username): bool
+    {
+        return in_array(strtolower($username), $this->userRightsLowerCase);
     }
 
 
     /**
-     * @param $username
-     * @return bool
+     * @param string $username
+     * @return bool true if the length is allowable in REDCap.
      */
-    private function validateUserName($username): bool
+    private function isValidUsername(string $username): bool
     {
-        return strlen($username) > 2;
+        $valid = false;
+        if (preg_match('/^[a-zA-Z0-9_\-.\s\'@]+$/D', $username) === 1 and strlen($username) >= 3) {
+            $valid = true;
+        }
+        return $valid;
     }
 
     /**
-     * @param $oldUser
-     * @param $newUser
-     * @return bool
+     * @param string $oldUser Old Username
+     * @param string $newUser New Username
+     * @return bool true if it is a valid username, otherwise false.
      */
-    private function validateUserNameChanges($oldUser, $newUser): bool
+    private function validateUserNameChanges(string $oldUser, string $newUser): bool
     {
-        if (!$this->validateUserName($oldUser)) {
+        if (!$this->isValidUsername($oldUser)) {
             return false;
         }
 
-        if (!$this->validateUserName($newUser)) {
+        if (!$this->isValidUsername($newUser)) {
             return false;
         }
 
-        if (!$this->findUser($oldUser)) {
+        if (!$this->isUserInTableInformation($oldUser)) {
             return false;
         }
 
-        if ($this->findUser($newUser)) {
+//        if ($this->isUserInTableInformation($newUser)) {
+//            return false;
+//        }
+
+        if ($this->countOccurrencesInTables($newUser)) {
             return false;
         }
         return true;
+    }
+
+    /**
+     * include the javascript file via <script src ="url_to_source"><script>
+     * @return string
+     */
+    private function getButtonCopyJS(): string
+    {
+        $path = $this->getUrl('js/button_copy.js');
+        return '<script src="' . $path . '"></script>';
+    }
+
+
+    /**
+     * get the Bulk Upload Form.
+     * @return string
+     */
+    private
+    function makeBulkUserNameAuthDeleteForm(): string
+    {
+        return '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
+            '<h4 class="alert alert-danger">Generate SQL to remove username(s) from the redcap_auth and redcap_auth_history tables.</h4>' .
+            '<h5>Bulk UserName Authentication Removal </h5><p>Process multiple users. Each row represents one user. No headers.' .
+            ' Each row must be in the format of<br><br> user_name</p>' .
+            '<form action = "' . $this->pageUrl . '" method = "post" enctype = "multipart/form-data">' .
+            '<div class="form-group">' .
+            '<label for="csvUserNames">Paste in the IDs below</label>' .
+            '<textarea name = "csvUserNames" id = "csvUserNames" class="form-control" rows="5"></textarea>' .
+            '</div>' .
+            '<button class="btn btn-success" type = "submit" name = "form_action" value="bulk_auth_delete_preview">Preview</button>' .
+            '</form></div>';
+    }
+
+    /**
+     * Display information to the end user about Deleting users from the redcap_auth and redcap_auth_history tables.
+     * @return void
+     */
+    private function bulkAuthDeletePreview(): void
+    {
+
+        $bulkCSV = $this->sanitize($_REQUEST['csvUserNames']);
+        if ($bulkCSV === '') {
+            echo '<h4>Please use provide a CSV list of old username and new usernames. One row per change.</h4>';
+            exit;
+        }
+
+        $html = '';
+        $errors = '';
+        $removeSQL = '';
+        $allUserNamesValid = true;
+        $ids = explode("\n", str_replace("\r", "", $bulkCSV));
+
+        // check for duplicate entries.
+        $uniqueIds = array_unique($ids);
+        if (count($ids) !== count($uniqueIds)) {
+            $allUserNamesValid = false;
+        }
+
+        $justOldUserNames = array_map(function ($item) {
+            return explode(',', $item)[0];
+        }, $ids);
+
+        if (count(array_unique($justOldUserNames)) !== count($uniqueIds)) {
+            $allUserNamesValid = false;
+        }
+
+        $counter = 0;
+        $selectAuthUsersSQL = 'SELECT `username` FROM redcap_auth ORDER BY `username`';
+        $authUsers = $this->query($selectAuthUsersSQL, []);
+        $rows = $authUsers->fetch_all();
+        $dbUsernames = array_column($rows, 0);
+
+        foreach ($ids as $id) {
+            $counter++;
+            $thisUser = $this->sanitize($id);
+            if (in_array($thisUser, $dbUsernames)) {
+                $removeSQL .= "DELETE FROM `redcap_auth` WHERE `username` = '$id';<br>" .
+                    "DELETE FROM `redcap_auth_history` WHERE `username` = '$id';<br><br>";
+            } else {
+                $allUserNamesValid = false;
+                $errors .= '<div class="alert alert-warning"><h4>Check line ' . $counter . '.<br>' .
+                    "$thisUser is not in the auth table" .
+                    '</h4></div>';
+            }
+        }
+        if ($allUserNamesValid) {
+            $html .= '<div class="alert alert-secondary"><h4>Validated. Please verify the data before proceeding.</h4></div>' .
+                '<h5>DELETE SQL</h5>' .
+                '<pre>' .
+                '-- Created ' . date('Y-m-d H:i:s') . '<br><br>' .
+                self::SQL_SAFE_UPDATES_OFF . '<br>' .
+                self::FOREIGN_KEY_CHECKS_OFF . '<br>' .
+                $removeSQL .
+                self::SQL_SAFE_UPDATES_ON . '<br>' .
+                self::FOREIGN_KEY_CHECKS_ON . '<br>' .
+                '</pre>' .
+                '<h4>Verify the SQL. You must run this script on your database.</h4>';
+
+            echo $html;
+        } else {
+            $errors = '<div class="alert alert-danger"><h4>Input must be corrected before proceeding</h4></div>' . $errors;
+            echo $errors;
+        }
+    }
+
+    /**
+     * Should a table/column be excluded from the update for various reasons.
+     * @param $tableAndColumn
+     * @return bool true when the table should be included. Otherwise, false.
+     */
+    private function shouldIncludeInUsernameUpdate($tableAndColumn): bool
+    {
+//  Checks
+        $tableName = $tableAndColumn['table'];
+        $columnName = $tableAndColumn['column'];
+
+        if (empty($tableName) || empty($columnName)) {
+            return false;
+        }
+
+        if (!$tableAndColumn['has_table']) {
+            return false;
+        }
+        if ($tableAndColumn['is_log'] && !$this->includeLogs) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param string $tableName Table Name
+     * @param string $columnName Column Name
+     * @param string $oldUser Old UserName
+     * @param string $newUser New Username
+     * @return string SQL that the end user reads on the webpage
+     */
+    function createReadableSqlUpdate(string $tableName, string $columnName, string $oldUser, string $newUser): string
+    {
+        return 'UPDATE ' . htmlspecialchars($tableName) .
+            ' SET `' . htmlspecialchars($columnName) . '`' .
+            ' = CAST(CONVERT("' . htmlspecialchars($newUser) . '" USING LATIN1) AS CHAR CHARACTER SET UTF8MB4)' .
+            ' WHERE `' . htmlspecialchars($columnName) . '` = "' . htmlspecialchars($oldUser) . '"';
+    }
+
+    public function countOccurrencesInTables(string $value): int|string
+    {
+        $queries = [];
+        $values = [];
+        foreach ($this->tablesAndColumns as $entry) {
+            $table = $entry['table'];
+            $column = $entry['column'];
+            if (!$this->shouldIncludeInUsernameUpdate($entry)) {
+                continue;
+            }
+            $queries[] = "SELECT 1 FROM `$table` WHERE `$column` = ?";
+            $values[] = $value;
+        }
+
+        $unionQuery = implode(" UNION ALL ", $queries) . " LIMIT 1";
+
+        try {
+            $result = $this->query($unionQuery, $values);
+        } catch (Exception $e) {
+            // Log the error, rethrow, or handle gracefully
+            error_log("Database query failed: " . $e->getMessage());
+            return 1; // a number greater than 0 to indicate an error.
+        }
+
+        return $result->num_rows;
     }
 
 }

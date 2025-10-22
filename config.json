@@ -1,12 +1,12 @@
 {
   "name": "Username Change",
-  "namespace": "CDC\\UserNameChange",
+  "namespace": "MGB\\UserNameChange",
   "framework-version": 9,
   "authors": [
     {
       "name": "Greg Neils",
-      "email": "gn2003@columbia.edu",
-      "institution": "Columbia University"
+      "email": "gneils@mgb.org",
+      "institution": "Massachusetts General Brigham"
     }
   ],
   "description": "Change a username",
@@ -25,22 +25,95 @@
     },
     {
       "1.1.3": "Bug fixes, refactor improvements and compatability with PHP 8."
+    },
+    {
+      "1.1.7": "Additional tables checked. The user_information table for the user is appended with the date of change and what changed."
+    },
+    {
+      "1.2.0": "Additional tables checked.  redcap_auth and redcap_auth_history can be included or excluded. Some information about EM settings and project dictionary that could be affected. New feature: code to remove table based data in auth and auth_history."
+    },
+    {
+      "1.3.0": "Simplified Menu. New informational pages including that usernames can be created in a project without being created in REDCap which may leading to SQL errors due to duplicates. Option to include or exclude database collation."
+    },
+    {
+      "1.4.0": "Turn off the dancing flower—or keep it. We want to brighten your day."
     }
   ],
-  "enable-every-page-hooks-on-system-pages": false,
+  "system-settings": [
+    {
+      "key": "feedback",
+      "name": "How much feedback do you want during the entire process",
+      "type": "radio",
+      "choices": [
+        {
+          "value": "0",
+          "name": "Minimal"
+        },
+        {
+          "value": "1",
+          "name": "Verbose"
+        }
+      ]
+    },
+    {
+      "key": "old_username_field_type",
+      "name": "For existing usernames would you like a drop down list or an open text field",
+      "type": "radio",
+      "choices": [
+        {
+          "value": "dropdown",
+          "name": "Dropdown"
+        },
+        {
+          "value": "text",
+          "name": "Text"
+        }
+      ]
+    },
+    {
+      "key": "new_username_case",
+      "name": "Should the new username be lower cased",
+      "type": "radio",
+      "choices": [
+        {
+          "value": "lower",
+          "name": "Yes, lowercase the new username."
+        },
+        {
+          "value": "same",
+          "name": "Keep the username in the same case as submitted."
+        }
+      ]
+    },
+    {
+      "key": "show_flower",
+      "name": "Show the dancing flower",
+      "type": "radio",
+      "choices": [
+        {
+          "value": "hide",
+          "name": "No, hide the flower."
+        },
+        {
+          "value": "show",
+          "name": "Yes, show the cute animation."
+        }
+      ]
+    }
+  ],
   "links": {
     "control-center": [
       {
         "name": "Change Usernames",
         "icon": "fas fa-receipt",
-        "url": "change-usernames.php",
+        "url": "change_usernames.php",
         "show-header-and-footer": true
       }
     ]
   },
   "compatibility": {
-    "redcap-version-min": "12.0.8",
-    "php-version-min": "7.4.0",
+    "redcap-version-min": "12.2.0",
+    "php-version-min": "8.0.3",
     "php-version-max": "8.8.0"
   }
 }

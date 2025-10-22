@@ -1,26 +1,104 @@
-<p>The purpose of this External Module is to help guide you in renaming a username.
-    Modifying a username might pose auditing problems, proceed with care!
-</p>
-<p>It is your responsibility to triple check the SQL, Tables and Columns used by this External Module.</p>
-<p>It is your responsibility to ensure that new usernames are compliant with REDCap.</p>
-<p>Usernames can only contain letters, numbers, underscores, hyphens, and periods.</p>
-<p>Create a backup of your database before continuing. Know how to restore from a backup.</p>
+<h4 class="alert alert-warning">This External Module is designed to assist you in renaming usernames within REDCap.
+    While renaming can be necessary,
+    it may also have serious implications for auditing and data integrity. PROCEED WITH CAUTION.</h4>
+<h3>Before You Begin</h3>
+<ol>
+    <li>Review and Validate Everything Carefully
+        <ul>
+            <li>You are responsible for verifying all SQL, tables, and columns used by this module.</li>
+            <li>Double and triple check the generated SQL statements before running them.</li>
+            <li>Preview the SQL before any changes are made. Review all code line by line.</li>
+        </ul>
+    </li>
+    <li>Ensure Username Validity
+        <ul>
+            <li>New usernames must comply with REDCap’s requirements.</li>
+            <li>Allowed characters: letters, numbers, underscores (_), hyphens (-), and periods (.)</li>
+        </ul>
+    </li>
+    <li>Backup First
+        <ul>
+            <li>Create a full backup of your REDCap database.</li>
+            <li>Make sure you know how to restore from this backup if anything goes wrong.</li>
+        </ul>
+    </li>
+</ol>
+<p>If used interactively, the module appends a comment in the user_comments column of the redcap_user_information table
+    to record the change with the date and time.</p>
+
+<h3>Important Notes on Database Integrity</h3>
+<p>For example: orphaned data in a child table could stop the script.</p>
+<p>When updating multiple usernames, a failure might leave some usernames unchanged.</p>
+<p>REDCap installations can vary. Some tables might be missing or differently structured, especially if your version is
+    newer than the module.</p>
 <p>
-    Your database may have inconsistencies with the generated SQL script.
-    An example is orphaned data in a child table that stops the SQL script from continuing.
-    When updating multiple usernames it is possible that a database error stops the script from continuing and all usernames past a certain point are not updated.
-    Information about the database collations and the affected tables are under the "Tables" and "DB Info" tab.
+    See the “Tables” and “DB Info” tabs for more on
 </p>
+<ul>
+    <li>Tables affected by this module.</li>
+    <li>Collation mismatches or skipped tables.</li>
+</ul>
+<h3>How SQL Safe Updates Work</h3>
+<p>When enabled (= 1), MySQL will prevent:</p>
+<ul>
+    <li>UPDATE or DELETE statements without a WHERE clause.</li>
+    <li>Statements that don’t use a key in the WHERE clause.</li>
+</ul>
 <p>
-    You preview the SQL before any changes are made. Review all code before proceeding!
-    Double check all SQL code before running it.
+    When used interactively, the redcap_user_information table, column user_comments is appended with the date and time
+    of the change.
 </p>
-<h4>The tabs above are here to provide you with information about your instance of REDCap and what this module will do.</h4>
-<p><strong>1. Read Me:</strong> Overview of the External Module.</p>
-<p><strong>2. Tables:</strong> List of tables where the username will be updated.</p>
-<p><strong>3. Change User:</strong> GUI for changing a username.</p>
-<p><strong>4. Auth Method:</strong> Information about authentication methods used in your system.</p>
-<p>
-    <strong>5. DB Info:</strong> Information about your database collations and tables that will and will not be updated when a username changes.
-</p>
-<p><strong>6. Password info:</strong> Table based authentication information.</p>
+<h3>Module Tabs Overview</h3>
+<ol>
+    <li><strong>Read Me:</strong> Overview of the External Module.</li>
+    <li><strong>Change User:</strong> GUI to change a username.</li>
+    <li><strong>DB Info:</strong> List of affected tables and database collation information.</li>
+    <li><strong>Authentication:</strong> Details on your system’s authentication methods.</li>
+    <li><strong>External Modules: </strong>External Module settings that may reference usernames.</li>
+    <li><strong>Dictionaries: </strong>Smart Variable [user-name] and action tags @USERNAME can be used in skip
+        patterns, action tags and calculations, and altering these may affect a project.
+    </li>
+    <li><strong>Passwords: </strong>Table-based authentication settings. Sometimes passwords need to be set to NULL or
+        the application will default to table based authentication.
+    </li>
+    <li><strong>Project Users: Users that exist only in a project but do NOT have a REDCap account.</strong>
+    </li>
+</ol>
+
+<h3>SQL Update Explained</h3>
+<p>The SQL statement below is one line of the SQL code that performs the username change on a single table.</p>
+<p>This command updates the redcap_auth table so that any user with the username bruce is changed to caitlyn, and it
+    does so in a way that carefully preserves the exact text format.</p>
+<pre>UPDATE redcap_auth<br>  SET `username` = CAST(CONVERT("caitlyn" USING LATIN1) AS CHAR CHARACTER SET UTF8MB4)<br>  WHERE `username` = 'bruce'";<br>UPDATE redcap_auth<br>  SET `username` = CONVERT(BINARY CONVERT("caitlyn") USING utf8mb4) <br>  WHERE `username` = "bruce";
+</pre>
+<p>It is trying to bypass or neutralize any collation or character set mismatches by explicitly converting the string
+    encoding.</p>
+<p>What this does:</p>
+<ol>
+    <li>CONVERT("caitlyn" USING LATIN1)<br> - This interprets the string 'caitlyn' as if it were stored in the latin1
+        character set.<br>It’s not changing the bytes, but rather telling the database: “Treat these bytes as if they
+        were latin1-encoded."<br>
+        Example use case: If a string was originally saved using latin1, but the database now uses utf8mb4, this
+        prevents misinterpretation during conversion.
+    </li>
+    <li>CAST(... AS CHAR CHARACTER SET utf8mb4)<br>This converts the result of the CONVERT(...) into a proper UTF-8
+        string.<br>It ensures the data is interpreted and stored as valid utf8mb4 text.
+    </li>
+</ol>
+<p>Putting it all together:<br>
+    You’re taking a string that may have been mis-encoded or stored under the wrong character set (latin1), and
+    converting it safely into utf8mb4. This helps avoid corrupted text, question marks (�), or other encoding problems
+    when moving between database versions or character sets.
+<ul>
+    <li>Global MySQL/MariaDB character set or collation settings</li>
+    <li>Table or column-level charset/collation</li>
+</ul>
+<p>Why?</p>
+<ul>
+    <li>If you’re updating values that came from a system with a different character encoding (e.g., latin1 source to
+        utf8mb4 destination).
+    </li>
+    <li>To avoid collation conflicts in WHERE clauses or assignments, especially when STRICT_TRANS_TABLES or
+        NO_ENGINE_SUBSTITUTION is enabled.
+    </li>
+</ul>

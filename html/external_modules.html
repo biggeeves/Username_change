@@ -1,0 +1,8 @@
+<p>External Modules may have settings that include usernames. When a username changes and setting(s) in the external
+    modules utilize a username, it may mean the external module breaks and updating the username will fix it.</p>
+<p>Running this script to find mentions of "user" in an external module.</p>
+<p style="color:red;"><strong>Use your knowledge of the external modules on your system. The results are a rough guess
+    and by no means exhaustive.</strong></p>
+<code>SELECT `project_id`, `key` FROM redcap_external_module_settings WHERE `key` LIKE '%user%' ORDER BY `project_id`,
+    `external_module_id`;</code>
+<br>

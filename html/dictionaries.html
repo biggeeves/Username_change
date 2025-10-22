@@ -1,0 +1,34 @@
+<p>Projects may have variables that utilize the username action tag or smart variable user-name or reference these in
+    the branching logic. There is </p>
+<p>Running this script to find mentions of "user-name" and @ "username" in all projects.</p>
+<p><strong>Add the variable, limit_pid, to the URL string, supply a PID and the results will be limited to that specific
+    PID.</strong></p>
+<p style="color:red;"><strong>Use the returned table and be very careful!</strong></p>
+<h4 class="text-center alert alert-danger">THIS IS LIMITED TO 1000 RESULTS.</h4>
+<label for="pid-input"><strong>Limit to a specific Project ID (PID):</strong></label><br>
+<input class="form-control col-md-6" type="number" id="pid-input" placeholder="Enter PID..."
+       style="margin-right: 8px;"/>
+<button class="btn btn-success m-3" onclick="changeUserNameGoToPID()">Go</button>
+
+<script>
+    function changeUserNameGoToPID() {
+        const pid = document.getElementById('pid-input').value.trim();
+        const url = new URL(window.location.href);
+
+        if (pid) {
+            url.searchParams.set('limit_pid', pid);
+        } else {
+            url.searchParams.delete('limit_pid');
+        }
+
+        window.location.href = url.toString();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentPid = urlParams.get('limit_pid');
+        if (currentPid) {
+            document.getElementById('pid-input').value = currentPid;
+        }
+    });
+</script>
