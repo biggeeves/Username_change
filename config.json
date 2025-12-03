@@ -1,12 +1,12 @@
 {
   "name": "Username Change",
   "namespace": "MGB\\UserNameChange",
-  "framework-version": 9,
+  "framework-version": 15,
   "authors": [
     {
       "name": "Greg Neils",
       "email": "gneils@mgb.org",
-      "institution": "Massachusetts General Brigham"
+      "institution": "Mass General Brigham"
     }
   ],
   "description": "Change a username",
