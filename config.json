@@ -37,6 +37,9 @@
     },
     {
       "1.4.0": "Turn off the dancing flower—or keep it. We want to brighten your day."
+    },
+    {
+      "1.5.0": "Add event logs dynamically."
     }
   ],
   "system-settings": [
