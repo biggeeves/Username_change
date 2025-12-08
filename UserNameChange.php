@@ -58,7 +58,7 @@ class UserNameChange extends AbstractExternalModule
     private string $subLinkStyle = 'text-decoration:none; letter-spacing:1px; font-weight:bold; font-size:1.5em;';
 
     /**
-     * @var string the html style for an active link.
+     * @var string the HTML style for an active link.
      */
     private string $actionStyle = ' font-style: italic;';
 
@@ -95,7 +95,7 @@ class UserNameChange extends AbstractExternalModule
      */
     private array $userRightsLowerCase;
     /**
-     * True all usernames should be lowercased.  This is a system level option.
+     * True, all usernames should be lowercased.  This is a system level option.
      * @var bool
      */
     private bool $newUsernameLowerCase;
@@ -134,39 +134,7 @@ class UserNameChange extends AbstractExternalModule
             $this->showFlower = true;
         }
 
-        $this->tablesAndColumns = [
-            ['table' => 'redcap_log_api_allowlist', 'column' => 'username', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event2', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event3', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event4', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event5', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event6', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event7', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event8', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event9', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event10', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event11', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_event12', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_view', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_log_view_old ', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
-            ['table' => 'redcap_auth', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_auth_history', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_data_access_groups_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_esignatures', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_external_links_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_locking_data', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_locking_records', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_projects', 'column' => 'project_pi_username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_project_dashboards_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_reports_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_reports_edit_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => 'AND `report_id` IN (SELECT `report_id` FROM redcap_reports )'],
-            ['table' => 'redcap_sendit_docs', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_user_allowlist', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_user_information', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_user_information', 'column' => 'user_sponsor', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
-            ['table' => 'redcap_user_rights', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ' AND `project_id` IN (SELECT `project_id` FROM redcap_projects)']
-        ];
+        $this->tablesAndColumns = $this->getDatabaseTables();
 
         $this->pageUrl = $this->getUrl('change_usernames.php');
         $selectUserInformationSQL = 'SELECT `username`' .
@@ -281,12 +249,7 @@ class UserNameChange extends AbstractExternalModule
 
         // todo, this isn't the right place for this.  The method should update the property anyway.
         //  Since it is not necessary on every page is it worth refactoring and specifying, or calling it good?
-        $dbTables = $this->getTablesFromSchema();
-        foreach ($this->tablesAndColumns as $rowId => $tablesAndColumns) {
-            if (in_array($tablesAndColumns['table'], $dbTables, true)) {
-                $this->tablesAndColumns[$rowId]['has_table'] = true;
-            }
-        }
+
         echo $this->makeNavBar();
 
         if ($this->action === 'read_me') {
@@ -376,9 +339,7 @@ class UserNameChange extends AbstractExternalModule
         $newUser = $this->sanitize($_REQUEST['new_name']);
         if ($this->singleUserNameUpdate($oldUser, $newUser)) {
             echo '<div class="alert alert-secondary">' .
-                '<h4>Outcome: Changed User ' .
-                "$oldUser to $newUser" .
-                '</h4>' .
+                "<h4>Outcome: Changed User $oldUser to $newUser </h4>" .
                 '</div>';
         } else {
             echo $this->getUserNameValidationErrors($oldUser, $newUser);
@@ -411,7 +372,7 @@ class UserNameChange extends AbstractExternalModule
     {
         $bulkCSV = $this->sanitize($_REQUEST['csvUserNames']);
         if ($bulkCSV === '') {
-            echo '<h4>Please use provide a CSV list of old username and new usernames. One row per change.</h4>';
+            echo '<h4>Please provide a CSV list of old usernames and new usernames. One row per change.</h4>';
             exit;
         }
 
@@ -499,11 +460,11 @@ class UserNameChange extends AbstractExternalModule
                 $html .= '<div class="alert alert-danger"><h4>There are duplicate rows that need to be cleaned.</h4></div>';
             }
             if (count(array_unique($justOldUserNames)) !== count($uniqueIds)) {
-                $html .= '<div class="alert alert-danger"><h4>There are duplicates old usernames that need to be cleaned.</h4></div>';
+                $html .= '<div class="alert alert-danger"><h4>There are duplicate old usernames that need to be cleaned.</h4></div>';
             }
 
             if (count(array_unique($justNewUserNames)) !== count($uniqueIds)) {
-                $html .= '<div class="alert alert-danger"><h4>There are duplicates new usernames that need to be cleaned.</h4></div>';
+                $html .= '<div class="alert alert-danger"><h4>There are duplicate new usernames that need to be cleaned.</h4></div>';
             }
         }
         echo $html;
@@ -543,7 +504,7 @@ class UserNameChange extends AbstractExternalModule
             }
         }
 
-        // if ALL usernames are valid proceed with the change.
+        // if ALL usernames are valid, proceed with the change.
         if ($allUserNamesValid) {
             echo '<div class="alert alert-secondary"><h4>Results of bulk upload.</h4></div>';
             foreach ($ids as $id) {
@@ -551,8 +512,8 @@ class UserNameChange extends AbstractExternalModule
                 $oldUser = $this->sanitize($names[0]);
                 $newUser = $this->sanitize($names[1]);
                 if ($this->singleUserNameUpdate($oldUser, $newUser)) {
-                    $html .= '<div class="alert alert-secondary"><h4>Changed ' .
-                        "$oldUser to $newUser </h4>" .
+                    $html .= '<div class="alert alert-secondary">' .
+                        "<h4>Changed $oldUser to $newUser </h4>" .
                         '</div>';
                 } else {
                     $html .= $this->getUserNameValidationErrors($oldUser, $newUser);
@@ -581,7 +542,7 @@ class UserNameChange extends AbstractExternalModule
         $log = "<input type=\"checkbox\" name=\"include_logs\" hidden $logCheck>";
 
         return '<div style="margin:20px; border: 2px solid pink; border-radius: 5px; padding:25px;">' .
-            '<h5>Bulk Username Change</h5><p>Clicking submit will finalize the username change. Proceed with caution.</p>' .
+            '<h5>Bulk Username Change</h5><p>Click submit to finalize the username change. Proceed with caution.</p>' .
             '<form  action="' . $this->pageUrl . '" method="post" enctype="multipart/form-data">' .
             '<p>' .
             $logLabel .
@@ -608,13 +569,17 @@ class UserNameChange extends AbstractExternalModule
 
         echo $this->makeTableList();
 
-        $columnSQL = "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME " .
+        $columnSQL = "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME, DATA_TYPE " .
             "FROM INFORMATION_SCHEMA.COLUMNS " .
             " WHERE `COLUMN_NAME` LIKE '%USER%'" .
-            " AND `TABLE_SCHEMA` = '" . $db . "'";
+            " AND `TABLE_SCHEMA` = '" . $db . "'" .
+            " AND DATA_TYPE IN ('char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext') " .
+            ' ORDER BY TABLE_NAME, COLUMN_NAME;';
 
-        $tableSQL = 'SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COLLATION FROM INFORMATION_SCHEMA.TABLES' .
+        $tableSQL = 'SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_COLLATION ' .
+            'FROM INFORMATION_SCHEMA.TABLES' .
             " WHERE `TABLE_SCHEMA` = '" . $db . "'";
+
 
         $columnResult = $this->query($columnSQL, []);
         $tableResult = $this->query($tableSQL, []);
@@ -626,16 +591,22 @@ class UserNameChange extends AbstractExternalModule
 
 
         $pageData = '<p>The underlying database tables used by REDCap at your institution may be slightly different from the tables listed below.</p>' .
-            '<p>In order to change a username the database must be queried and references to the old username located and updated</p>' .
-            '<p>Tables may be added REDCap at anytime in the future. This External Module only updates a fixed set of tables and columns.  At some point this fixed list may become outdated by the addition of a new table that includes a username.</p>' .
+            '<p>To change a username, the database must be queried and references to the old username located and updated</p>' .
+            '<p>Tables may be added to REDCap at anytime in the future. This External Module only updates a fixed set of tables and columns.  At some point, this fixed list may become outdated by the addition of a new table that includes a username.</p>' .
             '<p>The list below includes all tables with at least one column containing the word user.</p>' .
             '<ol>' .
             '<li>Tables in bold may be included in the update.</li>' .
             '<li>Regular entries = Detected but not updated by the module.</li>' .
             '</ol>' .
             '<h4>Helpful SQL Snippet to find columns with the word "user" in them:</h4>' .
-            '<code>SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME <br> FROM INFORMATION_SCHEMA.COLUMNS <br> WHERE `COLUMN_NAME` LIKE "%USER%"' .
-            'and `TABLE_SCHEMA` = "' . htmlspecialchars($db) . '" . </code><br><br>' .
+            '<code>SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME <br>'.
+            ' FROM INFORMATION_SCHEMA.COLUMNS <br> ' .
+            ' WHERE `COLUMN_NAME` LIKE "%USER%"' .
+            ' AND `TABLE_SCHEMA` = "' . htmlspecialchars($db) . '"' .
+            " AND DATA_TYPE IN ('char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext') " .
+            ' ORDER BY TABLE_NAME, COLUMN_NAME;' .
+            '</code>' .
+            '<br><br>' .
             '<h4>The REDCap system level db_collation is set to ' . htmlspecialchars($db_collation) . '</h4>' .
             '<p>Helpful SQL Snippets to view colations</p>' .
             '<p><strong>Query 1</strong><p>' .
@@ -647,9 +618,16 @@ class UserNameChange extends AbstractExternalModule
             '<p><strong>Rows in bold</strong>' .
             ' contain a table and column that reference user and will be included in the SQL update.</p></div>';
 
+
         if ($columnResult->num_rows > 0) {
+            $order = 0;
             $resultTable = '<table class="table table-striped table-bordered table-hover"><tr>' .
-                '<th>Table</th><th>Table<br>Collation</th><th>Column<br>Name</th><th>Column<br>Collation</th><th>Included</th></tr>';
+                '<th>Order</th>'.
+                '<th>Table</th>'.
+                '<th>Table<br>Collation</th>'.
+                '<th>Column<br>Name</th>'.
+                '<th>Column<br>Collation</th>'.
+                '<th>Included</th></tr>';
             while ($mySqlResult = mysqli_fetch_array($columnResult)) {
                 $tableIncludedInUpdate = false;
                 $resultTable .= '<tr';
@@ -660,18 +638,20 @@ class UserNameChange extends AbstractExternalModule
                         break;
                     }
                 }
+                $order++;
                 if ($tableIncludedInUpdate) {
                     $resultTable .= $boldStyle;
                 }
                 $resultTable .= '>' .
+                    "<td>$order</td>" .
                     '<td>' . htmlspecialchars($mySqlResult['TABLE_NAME'] ?? '', ENT_QUOTES) . '</td>';
                 if (key_exists($mySqlResult['TABLE_NAME'], $tableCollations)) {
-                    $resultTable .= '<td>' . htmlspecialchars($tableCollations[$mySqlResult['TABLE_NAME']]) . '</td>';
+                    $resultTable .= '<td>' . $this->escape($tableCollations[$mySqlResult['TABLE_NAME']]) . '</td>';
                 } else {
                     $resultTable .= '<td>Excluded table</td>';
                 }
-                $resultTable .= '<td>' . htmlspecialchars($mySqlResult['COLUMN_NAME'] ?? '', ENT_QUOTES) . '</td>' .
-                    '<td>' . htmlspecialchars($mySqlResult['COLLATION_NAME'] ?? '', ENT_QUOTES) . '</td>';
+                $resultTable .= '<td>' . $this->escape($mySqlResult['COLUMN_NAME'] ?? '', ENT_QUOTES) . '</td>' .
+                    '<td>' . $this->escape($mySqlResult['COLLATION_NAME'] ?? '', ENT_QUOTES) . '</td>';
                 if ($tableIncludedInUpdate) {
                     $resultTable .= '<td>Yes</td>';
                 } else {
@@ -742,7 +722,7 @@ class UserNameChange extends AbstractExternalModule
         $dagData = $this->query($dagSQL, []);
         $dagHtml = '<h4>Dag information.</h4>' .
             '<p>User can be assigned to a DAG but NOT have an entry in the user_information table. ' .
-            'When that happens the SQL username update query will fail because duplicate usernames are not allowed. ' .
+            'When that happens, the SQL username update query will fail because duplicate usernames are not allowed. ' .
             'The table below is everyone that is assigned to a DAG but that does NOT belong to the user_information table.</p>';
 
         if ($dagData->num_rows > 0) {
@@ -770,7 +750,7 @@ class UserNameChange extends AbstractExternalModule
 
         $rightsHtml = '<h4>Project User Rights information.</h4>' .
             '<p>User can be assigned to a User Rights Role but NOT have an entry in the user_information table. ' .
-            'When that happens the SQL username update query will fail because duplicate usernames are not allowed. ' .
+            'When that happens, the SQL username update query will fail because duplicate usernames are not allowed. ' .
             'The table below is everyone that is assigned to a Project but that does NOT belong to the user_information table.</p>';
 
 
@@ -1003,15 +983,19 @@ class UserNameChange extends AbstractExternalModule
     {
         $table = '<div class="alert alert-success">' .
             '<h4 class="text-center"><strong>Known database columns.</strong></h4></div>' .
-            '<p>This is a list tables that may have usernames that may be updated by this External Module.' .
-            ' Your version of REDCap may or may not have one of the tables below.' .
+            '<p>This is a list of tables that may have usernames that may be updated by this External Module.' .
+            ' Your version of REDCap may not have one of the tables below.' .
             ' "Yes" is in the "In DB" column means the table exists and may be updated.' .
-            ' If "No" is in the "In DB" column it means your database does not exist in your instance.' .
+            ' If "No" is in the "In DB" column, it means your database does not exist in your instance.' .
             ' NOTE: Column names are not verified!. <strong>If the module crashes during preview, do not continue. Manually inspect the database first.</strong></p>' .
             '<table class="table table-striped table-condensed">' .
-            '<tr><th>Table</th><th>Column</th><th>Table in DB</th><th>Is log Table</th></tr>';
+            '<tr><th>Order</th><th>Table</th><th>Column</th><th>Table in DB</th><th>Is log Table</th></tr>';
+        $order = 0;
         foreach ($this->tablesAndColumns as $tableAndColumn) {
-            $table .= '<tr><td>' . $tableAndColumn['table'] . '</td>' .
+            $order++;
+            $table .= '<tr>' .
+                '<td>' . $order . '</td>' .
+                '<td>' . $tableAndColumn['table'] . '</td>' .
                 '<td>' . $tableAndColumn['column'] . '</td>' .
                 '<td>' . (($tableAndColumn['has_table']) ? "Yes" : "No") . '</td>' .
                 '<td>' . (($tableAndColumn['is_log']) ? "Yes" : "No") . '</td>' . '</tr>';
@@ -1093,7 +1077,7 @@ class UserNameChange extends AbstractExternalModule
     {
 
         $form = '<h4 class="alert alert-danger">Please review the information above and below for accuracy. ' .
-            'You agree to take full responsibility for running this code. Pressing the button below can not be undone.</h4>' .
+            'You agree to take full responsibility for running this code. Pressing the button below cannot be undone.</h4>' .
             '<div class="card p-3"><form action="' . $this->pageUrl . '" method = "POST">' .
             '<div class="form-group">' .
             '<label for="old_name"><strong>Old Username </strong> ' . $oldUser . '</label>' .
@@ -1137,7 +1121,7 @@ class UserNameChange extends AbstractExternalModule
     }
 
     /**
-     * @return bool return true if the logs tables are included in the update.
+     * @return bool return true if the log tables are included in the update.
      */
     private
     function set_include_logs(): bool
@@ -1305,7 +1289,7 @@ class UserNameChange extends AbstractExternalModule
             }
             $authAvailable .= '</table>';
         } else {
-            $authAvailable = '<h3 class="alert alert-success">There are no results for auth methods. This result is strange and should probably never occur</h3>';
+            $authAvailable = '<h3 class="alert alert-success">There are no results for authentication methods. This result is strange and should probably never occur</h3>';
         }
 
         $pageData .= '<div style="padding:20px;margin:20px; border: 2px solid pink;">' .
@@ -1361,7 +1345,7 @@ class UserNameChange extends AbstractExternalModule
 
 
     /**
-     * @return mysqli_result return the various authentication methods utilized by projects.
+     * @return mysqli_result return the various authentication methods used by projects.
      */
     private
     function getAuthenticationMethodSummary(): mysqli_result
@@ -1541,9 +1525,9 @@ class UserNameChange extends AbstractExternalModule
 
         // Check if the new username already exists in either the user_information table or the user_rights table.
         if ($this->countOccurrencesInTables($newUser) > 0) {
-            $errorMessage .= "<br>The username, $oldUser, can not be changed to a username, $newUser, that name already exists in one or more tables.";
+            $errorMessage .= "<br>The username, $oldUser, cannot be changed to a username, $newUser, that name already exists in one or more tables.";
         } elseif ($this->isUserInTableRights($newUser)) {
-            $errorMessage = "<br>The username, $oldUser, can not be changed because $newUser has User Rights to a project.</h4>";
+            $errorMessage = "<br>The username, $oldUser, cannot be changed because $newUser has User Rights to a project.</h4>";
         }
         if (strlen($errorMessage) === 0) {
             $errorMessage = 'Unknown Error.';
@@ -1735,7 +1719,7 @@ class UserNameChange extends AbstractExternalModule
 
         $bulkCSV = $this->sanitize($_REQUEST['csvUserNames']);
         if ($bulkCSV === '') {
-            echo '<h4>Please use provide a CSV list of old username and new usernames. One row per change.</h4>';
+            echo '<h4>Please use provide a CSV list of old usernames and new usernames. One row per change.</h4>';
             exit;
         }
 
@@ -1773,8 +1757,8 @@ class UserNameChange extends AbstractExternalModule
                     "DELETE FROM `redcap_auth_history` WHERE `username` = '$id';<br><br>";
             } else {
                 $allUserNamesValid = false;
-                $errors .= '<div class="alert alert-warning"><h4>Check line ' . $counter . '.<br>' .
-                    "$thisUser is not in the auth table" .
+                $errors .= '<div class="alert alert-warning">' .
+                    "<h4>Check line $counter <br> $thisUser is not in the auth table" .
                     '</h4></div>';
             }
         }
@@ -1799,7 +1783,7 @@ class UserNameChange extends AbstractExternalModule
     }
 
     /**
-     * Should a table/column be excluded from the update for various reasons.
+     * Should a table/column be excluded from the update for various reasons?
      * @param $tableAndColumn
      * @return bool true when the table should be included. Otherwise, false.
      */
@@ -1863,6 +1847,58 @@ class UserNameChange extends AbstractExternalModule
         }
 
         return $result->num_rows;
+    }
+
+    private function getDatabaseTables() {
+        $tables = [
+            ['table' => 'redcap_auth', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_auth_history', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_data_access_groups_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_esignatures', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_external_links_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_locking_data', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_locking_records', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_projects', 'column' => 'project_pi_username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_project_dashboards_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_reports_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_reports_edit_access_users', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => 'AND `report_id` IN (SELECT `report_id` FROM redcap_reports )'],
+            ['table' => 'redcap_sendit_docs', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_user_allowlist', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_user_information', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_user_information', 'column' => 'user_sponsor', 'has_table' => false, 'is_log' => false, 'sql_append' => ''],
+            ['table' => 'redcap_user_rights', 'column' => 'username', 'has_table' => false, 'is_log' => false, 'sql_append' => ' AND `project_id` IN (SELECT `project_id` FROM redcap_projects)'],
+            ['table' => 'redcap_log_api_allowlist', 'column' => 'username', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_view', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_log_view_old', 'column' => 'user', 'has_table' => false, 'is_log' => true, 'sql_append' => ''],
+            ['table' => 'redcap_rewards_logs', 'column' => 'username', 'has_table' => false, 'is_log' => true, 'sql_append' => '']
+        ];
+
+        global $db;
+        $logTableSQL = 'SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES' .
+            " WHERE `TABLE_SCHEMA` = ? " .
+            " AND `TABLE_NAME` LIKE 'redcap_log_event%'";
+        $logTableResult = $this->query($logTableSQL, [$db ]);
+        $logTables = [];
+        while ($logRow = $logTableResult->fetch_assoc()) {
+            $logTables[] = [
+                'table' => $logRow['TABLE_NAME'],
+                'column' => 'user',
+                'has_table' => false,
+                'is_log' => true,
+                'sql_append' => ''
+                ];
+        }
+
+        $allTables = array_merge($tables, $logTables);
+
+        $dbTables = $this->getTablesFromSchema();
+
+        foreach ($allTables as $rowId => $tablesAndColumns) {
+            if (in_array($tablesAndColumns['table'], $dbTables, true)) {
+                $allTables[$rowId]['has_table'] = true;
+            }
+        }
+        return $allTables;
     }
 
 }
